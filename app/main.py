@@ -13,12 +13,12 @@ class Api:
     """Native helpers exposed to the page as window.pywebview.api.*"""
 
     def __init__(self):
-        self.window = None
-        self.server = None
+        self._window = None
+        self._server = None
 
     def save_dialog(self, default_name: str = "Doc2Excel.xlsx"):
         import webview
-        res = self.window.create_file_dialog(
+        res = self._window.create_file_dialog(
             webview.FileDialog.SAVE, directory=str(config.DOCS_HOME),
             save_filename=default_name, file_types=("Excel workbook (*.xlsx)",))
         if not res:
@@ -27,21 +27,21 @@ class Api:
 
     def open_files(self):
         import webview
-        res = self.window.create_file_dialog(
+        res = self._window.create_file_dialog(
             webview.FileDialog.OPEN, allow_multiple=True,
             file_types=("Documents (*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff;*.webp;*.heic;*.pdf)", "All files (*.*)"))
         return list(res or [])
 
     def pick_folder(self):
         import webview
-        res = self.window.create_file_dialog(webview.FileDialog.FOLDER)
+        res = self._window.create_file_dialog(webview.FileDialog.FOLDER)
         return (res[0] if res else None)
 
     def save_text(self, content: str, default_name: str = "document.txt"):
         """Save OCR text (.txt) or a table (.csv) where the user chooses."""
         import webview
         is_csv = default_name.lower().endswith(".csv")
-        res = self.window.create_file_dialog(
+        res = self._window.create_file_dialog(
             webview.FileDialog.SAVE, directory=str(config.DOCS_HOME), save_filename=default_name,
             file_types=("CSV (*.csv)",) if is_csv else ("Text file (*.txt)",))
         if not res:
@@ -118,11 +118,11 @@ def run_gui():
     port = server.start()
 
     api = Api()
-    api.server = server
+    api._server = server
     window = webview.create_window(
         "Doc2Excel", f"http://127.0.0.1:{port}/", js_api=api,
         width=1440, height=900, min_size=(1000, 640))
-    api.window = window
+    api._window = window
     try:
         webview.start(private_mode=True)
     finally:
