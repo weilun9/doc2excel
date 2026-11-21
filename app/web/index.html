@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="d2x-key" content="__D2X_KEY__">
+<title>Doc2Excel</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">⇄</span> Doc2Excel <small data-i18n="tagline"></small></div>
+  <div class="chips">
+    <label class="mode-pick"><span data-i18n="pickOcr"></span>
+      <select id="selOcr">
+        <option value="auto" data-i18n="ocrOptAuto"></option>
+        <option value="local" data-i18n="ocrOptLocal"></option>
+        <option value="vision" data-i18n="ocrOptVision"></option>
+      </select></label>
+    <label class="mode-pick"><span data-i18n="pickAi"></span>
+      <select id="selAi">
+        <option value="auto" data-i18n="aiOptAuto"></option>
+        <option value="online" data-i18n="aiOptOnline"></option>
+        <option value="offline" data-i18n="aiOptOffline"></option>
+      </select></label>
+    <span class="chip" id="chipOcr"></span>
+    <span class="chip" id="chipAi"></span>
+  </div>
+  <div class="top-actions">
+    <button class="ghost" id="btnLang">EN</button>
+    <button class="ghost" id="btnSettings" data-i18n="settings"></button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="side">
+    <section class="card">
+      <h3 data-i18n="phoneTitle"></h3>
+      <img id="qr" alt="QR" class="qr">
+      <select id="phoneUrl" class="url-select"></select>
+      <p class="hint" data-i18n="phoneHint"></p>
+      <p class="hint" id="phoneCount"></p>
+    </section>
+    <section class="card">
+      <h3 data-i18n="addTitle"></h3>
+      <button class="primary wide" id="btnFiles" data-i18n="pickFiles"></button>
+      <button class="wide" id="btnScan" data-i18n="scanner"></button>
+      <div class="watch">
+        <div class="label" data-i18n="watchFolder"></div>
+        <div class="path" id="watchPath"></div>
+        <div class="row">
+          <button class="small" id="btnWatchOpen" data-i18n="open"></button>
+          <button class="small" id="btnWatchPick" data-i18n="change"></button>
+        </div>
+      </div>
+      <p class="hint" data-i18n="dropHint"></p>
+    </section>
+  </aside>
+
+  <section class="content">
+    <div class="toolbar">
+      <label class="check"><input type="checkbox" id="selAll"> <span data-i18n="selectAll"></span></label>
+      <div class="spacer"></div>
+      <select id="exportMode">
+        <option value="per_doc" data-i18n="modePerDoc"></option>
+        <option value="combined" data-i18n="modeCombined"></option>
+        <option value="both" data-i18n="modeBoth"></option>
+      </select>
+      <button id="btnErpAll" data-i18n="erpSendChecked"></button>
+      <button class="primary" id="btnExport" data-i18n="export"></button>
+    </div>
+    <div id="docList" class="doc-list"></div>
+    <div id="empty" class="empty">
+      <div class="big">📄 → 📊</div>
+      <p data-i18n="emptyText"></p>
+    </div>
+  </section>
+</main>
+
+<!-- review / edit -->
+<div id="review" class="modal hidden">
+  <div class="review">
+    <div class="review-head">
+      <div class="title"><b id="rvName"></b> <span id="rvMeta" class="muted"></span></div>
+      <div class="actions">
+        <button id="rvEdit" data-i18n="edit"></button>
+        <button id="rvUndo" data-i18n="undo"></button>
+        <button id="rvCancel" data-i18n="cancel"></button>
+        <button class="primary" id="rvConfirm" data-i18n="confirm"></button>
+        <span class="sep"></span>
+        <button id="rvRedoAi" data-i18n="redoAi"></button>
+        <button id="rvRedoOcr" data-i18n="redoOcr"></button>
+        <span class="sep"></span>
+        <button id="rvErp" data-i18n="erpSend"></button>
+        <button class="ghost" id="rvClose">✕</button>
+      </div>
+    </div>
+    <div class="review-body">
+      <div class="pane original">
+        <div class="pane-head">
+          <span data-i18n="original"></span>
+          <span id="rvPages" class="pages"></span>
+          <span class="spacer"></span>
+          <button class="small" id="zoomOut">−</button>
+          <button class="small" id="zoomIn">+</button>
+        </div>
+        <div class="img-wrap" id="imgWrap"><img id="rvImg" alt=""></div>
+      </div>
+      <div class="pane result">
+        <div class="pane-head tabs">
+          <button class="tab active" data-tab="table" data-i18n="tabTable"></button>
+          <button class="tab" data-tab="text" data-i18n="tabText"></button>
+          <span class="spacer"></span>
+          <span id="rvWarn" class="warn"></span>
+          <button class="small" id="rvCopy" data-i18n="copy"></button>
+          <button class="small" id="rvSave" data-i18n="saveFile"></button>
+        </div>
+        <div class="tab-body" id="tabTable">
+          <div class="sec-head"><b data-i18n="docTitle"></b></div>
+          <input id="tTitle" class="title-input" disabled>
+          <div class="sec-head"><b data-i18n="fields"></b>
+            <button class="small edit-only" id="addField" data-i18n="addField"></button></div>
+          <table class="grid fields" id="fieldsGrid"></table>
+          <div class="sec-head"><b data-i18n="items"></b>
+            <span class="edit-only">
+              <button class="small" id="addRow" data-i18n="addRow"></button>
+              <button class="small" id="addCol" data-i18n="addCol"></button>
+            </span></div>
+          <div class="grid-scroll"><table class="grid items" id="itemsGrid"></table></div>
+        </div>
+        <div class="tab-body hidden" id="tabText"><pre id="ocrText"></pre></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- settings -->
+<div id="settings" class="modal hidden">
+  <div class="dialog">
+    <h2 data-i18n="settings"></h2>
+    <p class="hint"><span data-i18n="envNote"></span> <code id="envPath"></code></p>
+    <h4 data-i18n="aiSection"></h4>
+    <label><span>Base URL</span><input name="LLM_BASE_URL"></label>
+    <label><span>Model</span><input name="LLM_MODEL"></label>
+    <label><span>API key</span><input name="LLM_API_KEY" type="password" autocomplete="off"></label>
+    <label><span data-i18n="aiMode"></span>
+      <select name="AI_MODE">
+        <option value="auto" data-i18n="optAuto"></option>
+        <option value="online" data-i18n="optOnline"></option>
+        <option value="offline" data-i18n="optOffline"></option>
+      </select></label>
+    <h4 data-i18n="visionSection"></h4>
+    <label><span>Base URL</span><input name="VISION_BASE_URL" placeholder="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"></label>
+    <label><span>Model</span><input name="VISION_MODEL" placeholder="qwen-vl-max"></label>
+    <label><span>API key</span><input name="VISION_API_KEY" type="password" autocomplete="off"></label>
+    <label><span data-i18n="ocrMode"></span>
+      <select name="OCR_MODE">
+        <option value="auto" data-i18n="optOcrAuto"></option>
+        <option value="local" data-i18n="optOcrLocal"></option>
+        <option value="vision" data-i18n="optOcrVision"></option>
+      </select></label>
+    <h4 data-i18n="erpSection"></h4>
+    <p class="hint" data-i18n="erpHelp"></p>
+    <label><span data-i18n="erpUrl"></span><input name="ERP_URL" placeholder="http://localhost:8000" autocomplete="off"></label>
+    <label><span>Token</span><input name="ERP_TOKEN" type="password" autocomplete="off"></label>
+    <div class="erp-test"><button class="small" id="erpTest" data-i18n="erpTest"></button><span id="erpTestResult" class="hint"></span></div>
+    <p class="hint" data-i18n="keyNote"></p>
+    <div class="dialog-actions">
+      <button id="setCancel" data-i18n="cancel"></button>
+      <button class="primary" id="setSave" data-i18n="save"></button>
+    </div>
+  </div>
+</div>
+
+<div id="drop" class="drop hidden"><div data-i18n="dropNow"></div></div>
+<div id="toast" class="toast hidden"></div>
+
+<script src="/static/i18n.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

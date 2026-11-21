@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<!-- Status bar matches the green header in both schemes. -->
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#1f6f54">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1f6f54">
+<meta name="color-scheme" content="light">
+<title>Doc2Excel · 上传</title>
+<style>
+  :root { --brand: #1f6f54; --brand-press: #185a44; --muted: #6b7686;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --shadow-sm: 0 0 0 1px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.05); }
+  * { box-sizing: border-box; }
+  html {
+    -webkit-tap-highlight-color: transparent;   /* no grey flash on tap */
+    -webkit-text-size-adjust: 100%;             /* no font inflation in landscape */
+    overscroll-behavior: none;                  /* pull-to-refresh would wipe the upload list */
+  }
+  body { margin: 0; min-height: 100dvh; font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f4f6f9; color: #1d2733; -webkit-font-smoothing: antialiased; }
+  /* Edge to edge under the notch, content padded back out of it. */
+  header { position: relative; background: var(--brand); color: #fff;
+    padding: calc(18px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 16px calc(16px + env(safe-area-inset-left, 0px)); }
+  header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
+  header p { margin: 4px 0 0; opacity: .85; font-size: 14px; }
+  main { padding: 16px calc(16px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+  /* Tappable controls: instant click, no text selection or callout on long-press, press feedback on touch-down. */
+  .btn, .lang { touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 18px; margin-bottom: 12px;
+    font-size: 17px; font-weight: 600; border-radius: 14px; background: #fff; color: inherit; box-shadow: var(--shadow-sm);
+    transition: transform 120ms var(--ease-out), background-color 120ms ease; }
+  .btn:active { transform: scale(0.97); background: #eef1f5; }
+  .btn.primary { background: var(--brand); color: #fff; box-shadow: 0 1px 2px rgba(31, 111, 84, 0.35); }
+  .btn.primary:active { background: var(--brand-press); }
+  .btn .ic { font-size: 22px; }
+  input[type=file] { display: none; }
+  .list { margin-top: 10px; }
+  /* New upload rows slide in (occasional event, so it earns a short enter). */
+  .item { display: flex; align-items: center; gap: 10px; background: #fff; box-shadow: var(--shadow-sm); border-radius: 12px; padding: 10px; margin-bottom: 8px;
+    transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out); }
+  @starting-style { .item { opacity: 0; transform: translateY(8px); } }
+  .item img { width: 46px; height: 46px; object-fit: cover; border-radius: 6px; background: #eee; flex-shrink: 0; }
+  .item .name { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .st { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .item .st.ok { color: var(--brand); font-weight: 600; }
+  .item .st.err { color: #c0392b; }
+  .bar { height: 4px; background: #e6eaf0; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  /* Progress via transform (compositor), not width (layout). */
+  .bar i { display: block; height: 100%; width: 100%; background: var(--brand); transform: scaleX(0); transform-origin: left;
+    transition: transform 200ms var(--ease-out); }
+  .tip { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 16px; }
+  .lang { position: absolute; right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(14px + env(safe-area-inset-top, 0px));
+    background: rgba(255,255,255,.18); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 14px;
+    transition: transform 120ms var(--ease-out), background-color 120ms ease; }
+  .lang:active { transform: scale(0.96); background: rgba(255,255,255,.28); }
+  @media (prefers-reduced-motion: reduce) {
+    .btn:active, .lang:active { transform: none; }
+    @starting-style { .item { transform: none; } }
+  }
+</style>
+</head>
+<body>
+<header>
+  <button class="lang" id="lang">EN</button>
+  <h1 id="h1"></h1>
+  <p id="sub"></p>
+</header>
+<main>
+  <label class="btn primary"><span class="ic">📷</span><span id="bCam"></span>
+    <input id="cam" type="file" accept="image/*" capture="environment"></label>
+  <label class="btn"><span class="ic">🖼️</span><span id="bPick"></span>
+    <input id="pick" type="file" accept="image/*,application/pdf,.pdf,.heic" multiple></label>
+  <div class="list" id="list"></div>
+  <p class="tip" id="tip"></p>
+</main>
+<script>
+const T = {
+  zh: { h1: "上传到电脑", sub: "照片或 PDF 会发送到 Doc2Excel", cam: "拍照", pick: "选择图片 / PDF",
+        tip: "拍照时尽量平放、光线充足、整张纸都在画面里。可以连续拍多张，每张都会自动上传。",
+        up: "上传中…", ok: "✓ 已发送", err: "失败", rej: "不支持的格式" },
+  en: { h1: "Send to PC", sub: "Photos or PDFs go to Doc2Excel on your computer", cam: "Take photo", pick: "Choose images / PDFs",
+        tip: "Lay the page flat in good light with the whole sheet in frame. Take as many photos as you like; each one uploads automatically.",
+        up: "Uploading…", ok: "✓ Sent", err: "Failed", rej: "Unsupported" },
+};
+let L = localStorage.getItem("lang") || ((navigator.language || "").startsWith("en") ? "en" : "zh");
+const $ = (s) => document.querySelector(s);
+function apply() {
+  const t = T[L];
+  $("#h1").textContent = t.h1; $("#sub").textContent = t.sub; $("#bCam").textContent = t.cam;
+  $("#bPick").textContent = t.pick; $("#tip").textContent = t.tip; $("#lang").textContent = L === "zh" ? "EN" : "中文";
+  document.documentElement.lang = L;
+}
+$("#lang").onclick = () => { L = L === "zh" ? "en" : "zh"; localStorage.setItem("lang", L); apply(); };
+apply();
+
+const uploadUrl = location.pathname.replace(/\/$/, "") + "/upload";
+function send(file) {
+  const t = T[L];
+  const row = document.createElement("div");
+  row.className = "item";
+  const isImg = file.type.startsWith("image/");
+  row.innerHTML = `<img alt=""><div class="name"></div><div class="st">${t.up}</div>`;
+  row.querySelector(".name").textContent = file.name;
+  const bar = document.createElement("div"); bar.className = "bar"; bar.innerHTML = "<i></i>";
+  row.querySelector(".name").appendChild(bar);
+  if (isImg) row.querySelector("img").src = URL.createObjectURL(file);
+  else row.querySelector("img").replaceWith(Object.assign(document.createElement("div"), { textContent: "📄", style: "font-size:30px;width:46px;text-align:center" }));
+  $("#list").prepend(row);
+  const fd = new FormData();
+  fd.append("files", file, file.name);
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", uploadUrl);
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) bar.firstChild.style.transform = "scaleX(" + (e.loaded / e.total) + ")"; };
+  xhr.onload = () => {
+    const st = row.querySelector(".st");
+    let ok = xhr.status === 200, rej = false;
+    try { const j = JSON.parse(xhr.responseText); rej = j.rejected && j.rejected.length > 0; ok = ok && !rej; } catch (_) {}
+    st.textContent = ok ? t.ok : (rej ? t.rej : t.err + " (" + xhr.status + ")");
+    st.className = "st " + (ok ? "ok" : "err");
+    bar.remove();
+  };
+  xhr.onerror = () => { const st = row.querySelector(".st"); st.textContent = t.err; st.className = "st err"; };
+  xhr.send(fd);
+}
+for (const id of ["cam", "pick"]) {
+  $("#" + id).addEventListener("change", (e) => { [...e.target.files].forEach(send); e.target.value = ""; });
+}
+</script>
+</body>
+</html>
