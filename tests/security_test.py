@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TMP = Path(tempfile.mkdtemp(prefix="d2x_sec_"))
 os.environ["LOCALAPPDATA"] = str(TMP / "appdata")       # isolate state + inbox
 os.environ["D2X_AI_MODE"] = "offline"                   # never call a real API
+os.environ["D2X_KEYSTORE"] = "memory"                   # never touch the real Credential Manager
 os.environ["D2X_WATCH_DIR"] = str(TMP / "watch")
 sys.path.insert(0, str(ROOT))
 
@@ -121,6 +122,10 @@ s, _, data = req("GET", "/api/settings", headers=KEY)
 check("Settings API never returns the API key", s == 200 and FAKE_KEY.encode() not in data, f"status {s}")
 s, _, data = req("GET", "/api/state", headers=KEY)
 check("State API never returns the API key", FAKE_KEY.encode() not in data, "")
+check("Plain-text key in .env is moved to the key store and blanked in .env",
+      FAKE_KEY not in config.ENV_PATH.read_text(encoding="utf-8")
+      and "LLM_API_KEY=\n" in config.ENV_PATH.read_text(encoding="utf-8")
+      and config.get("LLM_API_KEY") == FAKE_KEY, "")
 s, _, data = req("POST", "/api/settings", headers={**KEY, "Content-Type": "application/json"},
                  body=json.dumps({"LLM_BASE_URL": "https://attacker.example/v1"}).encode())
 env_after = config.ENV_PATH.read_text(encoding="utf-8")
@@ -275,6 +280,8 @@ JSON_H = {**KEY, "Content-Type": "application/json"}
 s, _, _ = req("POST", "/api/settings", headers=JSON_H,
               body=json.dumps({"ERP_URL": ERP_URL, "ERP_TOKEN": ERP_TOKEN}).encode())
 check("ERP settings can be saved", s == 200, f"status {s}")
+check("ERP token saved from Settings is not written to .env",
+      ERP_TOKEN not in config.ENV_PATH.read_text(encoding="utf-8") and config.get("ERP_TOKEN") == ERP_TOKEN, "")
 
 # access control on the new routes
 s1, _, _ = req("POST", "/api/erp/ping", headers={"Content-Type": "text/plain"}, body=b"")

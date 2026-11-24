@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 os.environ["LOCALAPPDATA"] = tempfile.mkdtemp(prefix="d2x_tab_")
+os.environ["D2X_KEYSTORE"] = "off"  # never move keys out of the real .env
 sys.path.insert(0, str(ROOT))
 
 from app import config, layout, llm, ocr, structure  # noqa: E402

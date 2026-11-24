@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 TMP = Path(tempfile.mkdtemp(prefix="d2x_dm_"))
 os.environ["LOCALAPPDATA"] = str(TMP / "appdata")
+os.environ["D2X_KEYSTORE"] = "off"  # never move keys out of the real .env
 sys.path.insert(0, str(ROOT))
 
 from openpyxl import Workbook, load_workbook  # noqa: E402

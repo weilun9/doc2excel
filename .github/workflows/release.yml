@@ -55,6 +55,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           .\.venv\Scripts\python tests\updater_test.py
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python tests\keystore_test.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       - name: Install NSIS
         shell: pwsh
@@ -74,6 +76,24 @@ jobs:
           $env:D2X_AI_MODE = "offline"; $env:D2X_OCR_MODE = "local"
           $p = Start-Process dist\Doc2Excel.exe -ArgumentList "--process","samples\sample_invoice.png","--out","$env:RUNNER_TEMP\smoke.xlsx" -Wait -PassThru
           if ($p.ExitCode -ne 0 -or -not (Test-Path "$env:RUNNER_TEMP\smoke.xlsx")) { throw "exe smoke test failed ($($p.ExitCode))" }
+
+      - name: Key store test (built exe moves a .env key into Credential Manager)
+        shell: pwsh
+        run: |
+          $env:D2X_AI_MODE = "offline"; $env:D2X_OCR_MODE = "local"
+          $d = "$env:RUNNER_TEMP\kstest"; New-Item -ItemType Directory $d | Out-Null
+          Copy-Item dist\Doc2Excel.exe $d
+          Set-Content "$d\.env" "LLM_API_KEY=sk-ci-test-key`n" -Encoding utf8
+          foreach ($i in 1..2) {  # 1st run moves the key, 2nd run reads it back
+            $p = Start-Process "$d\Doc2Excel.exe" -ArgumentList "--process","samples\sample_invoice.png","--out","$d\o$i.xlsx" -PassThru
+            if (-not $p.WaitForExit(120000)) { $p.Kill(); throw "exe hung (run $i)" }
+            if ($p.ExitCode -ne 0) { throw "exe failed (run $i): $($p.ExitCode)" }
+          }
+          if ((Get-Content "$d\.env" -Raw) -match "sk-ci-test-key") { throw "key still in .env" }
+          $list = cmdkey /list | Out-String
+          if ($list -notmatch [regex]::Escape("Doc2Excel:LLM_API_KEY:$d")) { throw "key not in Credential Manager" }
+          cmdkey /delete:"Doc2Excel:LLM_API_KEY:$d" | Out-Null
+          Write-Host "key store OK"
 
       - name: Installer test (silent install + uninstall)
         shell: pwsh

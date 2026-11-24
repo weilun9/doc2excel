@@ -41,11 +41,13 @@ vulnerabilities** in the pinned dependencies.
 - Decompression-bomb images fail with an error, and the worker keeps running.
 - PDFs are capped at 30 pages.
 - XSS: file names, OCR text and AI output are HTML-escaped in the UI. A file named `<img onerror=...>` renders as text.
-- Secrets: API keys are only in `.env`. They are never returned by any API or shown in Settings, and never logged.
+- Secrets: API keys are kept in Windows Credential Manager (DPAPI, current user, `CRED_PERSIST_LOCAL_MACHINE`), named per install folder; plain-text keys found in `.env` are moved there and blanked (`tests/keystore_test.py`). They are never returned by any API or shown in Settings, and never logged.
+- Updates: only HTTPS release assets of `github.com/weilun9/doc2excel` are downloaded, checked against the size and sha256 digest GitHub reports, then installed (`tests/updater_test.py`).
 
 ## Residual risks (accepted)
 
-- **Data at rest:** imported documents and OCR text are stored unencrypted in `%LOCALAPPDATA%\Doc2Excel`, and the API key is stored in plain text in `.env`. Both are protected only by the Windows user account.
+- **Data at rest:** imported documents and OCR text are stored unencrypted in `%LOCALAPPDATA%\Doc2Excel`, protected only by the Windows user account. API keys are encrypted, but any program running as the same Windows user (e.g. malware) can still ask Credential Manager for them.
+- **Release integrity:** the sha256 check catches damaged or altered downloads, not a compromised GitHub account; installers are not code-signed. Keep two-factor login on the GitHub account.
 - **Third-party AI:** in AI mode, the OCR text (and the image, with a vision model) is sent to the configured provider. Offline mode sends nothing.
 - **Prompt injection:** a document can contain text that tries to steer the AI. The AI can only fill a table (no tools, no file access), and every table is reviewed before export.
 - **Public networks:** Windows Firewall allows Doc2Excel on public networks so phone upload works. On untrusted Wi-Fi, the token-protected phone page is reachable by others on that network. Close the app when you are not using it.

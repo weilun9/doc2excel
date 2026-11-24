@@ -1,12 +1,16 @@
 """Paths and settings. Settings live in a `.env` file next to the exe (or the
-project root when running from source). Nothing is hard-coded: API keys are
-read from that file, and the in-app settings screen writes back to it."""
+project root when running from source); the in-app settings screen writes back
+to it. API keys (SECRET_KEYS) are kept in Windows Credential Manager instead
+(see keystore.py): a key found in plain text in .env is moved there on the next
+load and its line is blanked. Without Credential Manager they stay in .env."""
 from __future__ import annotations
 
 import os
 import sys
 import threading
 from pathlib import Path
+
+from . import keystore
 
 APP_NAME = "Doc2Excel"
 
@@ -73,11 +77,64 @@ def _parse_env(text: str) -> dict[str, str]:
     return out
 
 
+def _target(key: str) -> str:
+    """Credential name, one set of keys per settings file (install folder)."""
+    return f"Doc2Excel:{key}:{ENV_PATH.resolve().parent}"
+
+
+def _write_env_lines(updates: dict[str, str], append: bool) -> None:
+    """Set KEY=value in .env, keeping comments and unknown lines. Caller holds _lock."""
+    lines = ENV_PATH.read_text(encoding="utf-8-sig").splitlines() if ENV_PATH.exists() else []
+    pending = dict(updates)
+    for i, raw in enumerate(lines):
+        s = raw.strip()
+        if s and not s.startswith("#") and "=" in s:
+            k = s.split("=", 1)[0].strip()
+            if k in pending:
+                lines[i] = f"{k}={pending.pop(k)}"
+    if append:
+        for k, v in pending.items():
+            lines.append(f"{k}={v}")
+    ENV_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _store_secrets(secrets: dict[str, str]) -> bool:
+    """Put keys into Credential Manager. False (and nothing half-done that
+    matters) when it is unavailable or fails; the caller then keeps .env."""
+    if not keystore.available():
+        return False
+    try:
+        for k, v in secrets.items():
+            keystore.put(_target(k), v, f"Doc2Excel {k} ({ENV_PATH.parent})")
+    except keystore.KeystoreError as e:
+        print("keystore:", e)
+        return False
+    return True
+
+
+def key_storage() -> str:
+    return "credman" if keystore.available() else "env"
+
+
 def load() -> dict[str, str]:
     with _lock:
         vals = dict(DEFAULTS)
-        if ENV_PATH.exists():
-            vals.update(_parse_env(ENV_PATH.read_text(encoding="utf-8-sig")))
+        file_vals = _parse_env(ENV_PATH.read_text(encoding="utf-8-sig")) if ENV_PATH.exists() else {}
+        vals.update(file_vals)
+        # Plain-text keys in .env (hand-edited, or from an older version): move
+        # them into Credential Manager and blank them in the file.
+        plain = {k: file_vals[k] for k in SECRET_KEYS if file_vals.get(k)}
+        if plain and _store_secrets(plain):
+            _write_env_lines({k: "" for k in plain}, append=False)
+            plain = {}
+        if keystore.available():
+            for k in SECRET_KEYS:
+                if k not in plain:
+                    try:
+                        vals[k] = keystore.get(_target(k))
+                    except keystore.KeystoreError as e:
+                        print("keystore:", e)
+                        vals[k] = ""
         for k in DEFAULTS:  # D2X_<KEY> environment variables override .env (testing)
             if os.environ.get("D2X_" + k):
                 vals[k] = os.environ["D2X_" + k]
@@ -96,19 +153,18 @@ def get(key: str) -> str:
 
 
 def save(updates: dict[str, str]) -> None:
-    """Update keys in .env, keeping comments and unknown lines intact."""
+    """Update settings in .env, keeping comments and unknown lines intact.
+    API keys go to Credential Manager (an empty value deletes the key)."""
     with _lock:
-        lines = ENV_PATH.read_text(encoding="utf-8-sig").splitlines() if ENV_PATH.exists() else []
         pending = {k: str(v) for k, v in updates.items() if k in DEFAULTS}
-        for i, raw in enumerate(lines):
-            s = raw.strip()
-            if s and not s.startswith("#") and "=" in s:
-                k = s.split("=", 1)[0].strip()
-                if k in pending:
-                    lines[i] = f"{k}={pending.pop(k)}"
-        for k, v in pending.items():
-            lines.append(f"{k}={v}")
-        ENV_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        secrets = {k: v for k, v in pending.items() if k in SECRET_KEYS}
+        if secrets and _store_secrets(secrets):
+            for k in secrets:
+                pending.pop(k)
+            if ENV_PATH.exists():  # blank any old plain-text line
+                _write_env_lines({k: "" for k in secrets}, append=False)
+        if pending:
+            _write_env_lines(pending, append=True)
     load()
 
 
@@ -119,6 +175,7 @@ def public_settings() -> dict:
     for k in SECRET_KEYS:
         out[k + "_SET"] = bool(vals.get(k))
     out["ENV_PATH"] = str(ENV_PATH)
+    out["KEY_STORAGE"] = key_storage()
     return out
 
 

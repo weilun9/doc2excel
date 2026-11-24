@@ -120,8 +120,17 @@ and `Doc2Excel.exe --from-worksheet 整理.xlsx`.
 
 ## Where API keys go
 
-Keys live **only** in the `.env` file next to the exe. They are never in the
-code, and the Settings screen never shows a saved key back.
+API keys (`LLM_API_KEY`, `VISION_API_KEY`, `ERP_TOKEN`) are stored in
+**Windows Credential Manager**, encrypted for your Windows user, under names
+like `Doc2Excel:LLM_API_KEY:<install folder>`. They are not in the code and not
+in `.env`, and the Settings screen never shows a saved key back. A copy of
+`.env`, a backup, or another Windows account gets no key.
+
+Enter keys in **Settings**, or type them into `.env` as below: on the next start
+Doc2Excel moves them into Credential Manager and blanks the line. Uninstalling
+keeps the keys so a reinstall still has them. To remove them, delete the
+`Doc2Excel:` entries in Control Panel > Credential Manager > Windows Credentials.
+If Credential Manager can't be used, keys stay in `.env` and Settings says so.
 
 ```ini
 # Text LLM that builds the table (any OpenAI-compatible API)
@@ -148,7 +157,8 @@ come back online.
 
 | What | Where |
 |---|---|
-| Settings and keys | `.env` next to `Doc2Excel.exe` |
+| Settings | `.env` next to `Doc2Excel.exe` |
+| API keys | Windows Credential Manager (`Doc2Excel:…` entries) |
 | Imported files, previews, session state | `%LOCALAPPDATA%\Doc2Excel\` |
 | Watched folder (default) | `Documents\Doc2Excel\Inbox` |
 | Log (exe only) | `%LOCALAPPDATA%\Doc2Excel\doc2excel.log` |

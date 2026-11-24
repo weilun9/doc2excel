@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parent.parent
 TMP = Path(tempfile.mkdtemp(prefix="d2x_upd_"))
 os.environ["LOCALAPPDATA"] = str(TMP / "appdata")
 os.environ["D2X_AI_MODE"] = "offline"
+os.environ["D2X_KEYSTORE"] = "memory"  # never touch the real Credential Manager
 os.environ["D2X_WATCH_DIR"] = str(TMP / "watch")
 sys.path.insert(0, str(ROOT))
 

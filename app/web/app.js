@@ -551,6 +551,9 @@ $("#btnSettings").onclick = async () => {
     } else el.value = s[el.name] ?? "";
   });
   $("#envPath").textContent = s.ENV_PATH;
+  const kn = $("#keyNote");
+  kn.dataset.i18n = s.KEY_STORAGE === "env" ? "keyNoteEnv" : "keyNote";
+  kn.textContent = t(kn.dataset.i18n);
   $("#verCurrent").textContent = STATE.version || "?";
   $("#checkResult").textContent = "";
   dlg.classList.remove("hidden");
