@@ -12,6 +12,7 @@ if (-not (Test-Path .venv)) {
     --name Doc2Excel `
     --icon assets\icon.ico `
     --add-data "app\web;app\web" `
+    --add-data "assets\dynamod;assets\dynamod" `
     --collect-data rapidocr_onnxruntime `
     --collect-binaries onnxruntime `
     --hidden-import pillow_heif `

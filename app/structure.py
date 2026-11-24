@@ -37,7 +37,12 @@ Rules:
 - columns/rows: the repeating records (invoice line items, receipt items,
   statement transactions). Every row has exactly len(columns) cells; use "" when empty.
 - Keep values as printed (numbers without thousands separators are fine; keep
-  decimals). Dates as printed.
+  decimals). Dates as printed. Item codes and barcodes: every digit, as text.
+- When printed, keep these as separate columns: item code, barcode, description,
+  UOM (CTN/PCS/PKT...), quantity, free/FOC quantity, unit price, discount, and the
+  line amount after discount (name that column "Nett Amount" if the document shows
+  both a gross and a nett amount).
+- Put subtotal, tax (SST), rounding and the grand total in fields as separate keys.
 - If the document has no repeating records, put everything in fields and return
   columns ["Item", "Value"] with rows copied from fields.
 - Never invent data that is not in the text."""

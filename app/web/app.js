@@ -278,6 +278,68 @@ $("#btnExport").onclick = async () => {
   }
 };
 
+// ---------------- SmartAcc DynaMod ----------------
+let dmLast = { workbook: "", out_dir: "" };
+
+function showDmResult(r) {
+  dmLast = { workbook: r.workbook || "", out_dir: r.out_dir || "" };
+  const rows = (r.results || []).map((x) => {
+    const status = x.ok
+      ? `<td class="ok">${esc(t("dmOk", { n: x.lines }))}</td>`
+      : `<td class="bad">${esc(t("dmBad"))}</td>`;
+    const why = x.ok ? esc(x.path) : esc((x.problems || []).join("；"));
+    return `<tr><td><b>${esc(x.doc_id)}</b><div class="why">${why}</div></td>${status}</tr>`;
+  });
+  $("#dmTable").innerHTML = rows.join("");
+  const notes = [...(r.notes || [])];
+  if ((r.results || []).some((x) => !x.ok) && r.workbook) notes.push(t("dmCheckInWb"));
+  $("#dmNotes").textContent = notes.join(" ");
+  $("#dmOpenWb").classList.toggle("hidden", !r.workbook || !native());
+  $("#dmOpenDir").classList.toggle("hidden", !native());
+  $("#dmResult").classList.remove("hidden");
+}
+
+function dmError(e) {
+  const code = e.data?.error;
+  if (code === "dm_workbook_missing") return toast(t("dmNeedWb"), 7000);
+  if (code === "dm_not_workbook") return toast(t("dmNotWb"), 7000);
+  if (code === "no_ready_docs") return toast(t("noneSelected"));
+  toast(String(e.message || e), 7000);
+}
+
+$("#btnDm").onclick = async () => {
+  const ids = STATE.docs.filter((d) => selected.has(d.id) && d.status === "ready").map((d) => d.id);
+  if (!ids.length) return toast(t("noneSelected"));
+  if (!native()) return;
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  const path = await native().save_dialog(`进单整理_${stamp}.xlsx`);
+  if (!path) return;
+  try {
+    showDmResult(await api("/api/dynamod/export", { method: "POST", body: JSON.stringify({ ids, path }) }));
+  } catch (e) { dmError(e); }
+};
+
+$("#btnDmFromWb").onclick = async () => {
+  if (!native()) return;
+  const path = await native().open_xlsx();
+  if (!path) return;
+  try {
+    showDmResult(await api("/api/dynamod/from_workbook", { method: "POST", body: JSON.stringify({ path }) }));
+  } catch (e) { dmError(e); }
+};
+
+$("#dmClose").onclick = () => $("#dmResult").classList.add("hidden");
+$("#dmOpenWb").onclick = () => dmLast.workbook && native()?.open_path(dmLast.workbook);
+$("#dmOpenDir").onclick = () => dmLast.out_dir && native()?.open_path(dmLast.out_dir);
+$("#dmPickWb").onclick = async () => {
+  const p = await native()?.open_xlsx();
+  if (p) $('#settings [name="DYNAMOD_WORKBOOK"]').value = p;
+};
+$("#dmPickOut").onclick = async () => {
+  const p = await native()?.pick_folder();
+  if (p) $('#settings [name="DYNAMOD_OUT_DIR"]').value = p;
+};
+
 // ---------------- review / edit ----------------
 const RV = { doc: null, draft: null, undo: [], editing: false, page: 0, zoom: 1 };
 const clone = (o) => JSON.parse(JSON.stringify(o));

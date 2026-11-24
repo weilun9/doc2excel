@@ -173,6 +173,9 @@ VISION_TABLE_PROMPT = (
     "lines in ONE row.\n"
     "Also return \"lines\": every printed line top to bottom, columns separated by ' | ', "
     "numbers/dates/codes exactly as printed.\n"
+    "Handwriting next to a line: a handwritten barcode goes in a column named "
+    "\"Handwritten Barcode\", a handwritten price in \"Handwritten Price\". A line that is "
+    "crossed out by hand: leave it OUT of rows.\n"
 ) + structure.SCHEMA_RULES.replace(
     'Return ONLY a JSON object with this shape:\n{',
     'Return ONLY a JSON object with this shape:\n{\n  "lines": ["Invoice No: | INV-001"],', 1)

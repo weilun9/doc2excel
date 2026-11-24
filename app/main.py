@@ -32,6 +32,14 @@ class Api:
             file_types=("Documents (*.jpg;*.jpeg;*.png;*.bmp;*.tif;*.tiff;*.webp;*.heic;*.pdf)", "All files (*.*)"))
         return list(res or [])
 
+    def open_xlsx(self):
+        """Pick one Excel workbook (DynaMod 整理模板 / an edited 整理表)."""
+        import webview
+        res = self._window.create_file_dialog(
+            webview.FileDialog.OPEN, directory=str(config.DOCS_HOME),
+            file_types=("Excel workbook (*.xlsx)",))
+        return (res[0] if res else None)
+
     def pick_folder(self):
         import webview
         res = self._window.create_file_dialog(webview.FileDialog.FOLDER)
@@ -132,7 +140,7 @@ def run_gui():
         os._exit(0)
 
 
-def run_cli(files: list[str], out: str, mode: str) -> int:
+def run_cli(files: list[str], out: str, mode: str, dynamod_wb: str | None = None) -> int:
     import tempfile
     tmp = Path(tempfile.mkdtemp(prefix="doc2excel_cli_"))
     config.INBOX_DIR = tmp / "inbox"
@@ -160,8 +168,25 @@ def run_cli(files: list[str], out: str, mode: str) -> int:
     ready = [d for d in docs if d.get("table")]
     if not ready:
         return 1
+    if dynamod_wb:
+        return _cli_dynamod(ready, dynamod_wb, out)
     path = exporter.export(ready, out, mode)
     print("exported:", path)
+    return 0
+
+
+def _cli_dynamod(docs: list[dict], workbook: str, out: str) -> int:
+    """--dynamod: 进单整理表 at --out + import files for bills that pass."""
+    from . import dynamod
+    if not Path(workbook).is_file():
+        print("DynaMod template not found:", workbook)
+        return 1
+    lk = dynamod.Lookups.from_workbook(workbook)
+    loc = config.get("DYNAMOD_LOCATION") or dynamod.DEFAULT_LOCATION
+    bills = [dynamod.bill_from_doc(d, lk, loc) for d in docs]
+    print("work sheet:", dynamod.write_workbook(bills, workbook, out))
+    for r in dynamod.write_import_files(bills, config.get("DYNAMOD_OUT_DIR")):
+        print(f"   {r['doc_id']}: " + (f"import file {r['path']}" if r["ok"] else "CHECK - " + "; ".join(r["problems"])))
     return 0
 
 
@@ -187,6 +212,11 @@ def main(argv=None):
     ap.add_argument("--process", nargs="+", metavar="FILE", help="process files without the GUI")
     ap.add_argument("--out", default="Doc2Excel.xlsx")
     ap.add_argument("--mode", default="both", choices=["per_doc", "combined", "both"])
+    ap.add_argument("--dynamod", metavar="TEMPLATE.xlsx",
+                    help="SmartAcc DynaMod: write a 进单整理表 (--out) from this template "
+                         "+ import files into DYNAMOD_OUT_DIR")
+    ap.add_argument("--from-worksheet", metavar="整理表.xlsx",
+                    help="SmartAcc DynaMod: make import files from an edited, Excel-saved 整理表")
     ap.add_argument("--server-only", action="store_true", help="dev: run the server without a window")
     args = ap.parse_args(argv)
     if args.server_only:
@@ -200,8 +230,17 @@ def main(argv=None):
         print("serving on", srv.start(), srv.phone_urls(), flush=True)
         while True:
             time.sleep(3600)
+    if args.from_worksheet:
+        from . import dynamod
+        config.load()
+        bills, notes = dynamod.bills_from_workbook(args.from_worksheet)
+        for n in notes:
+            print(n)
+        for r in dynamod.write_import_files(bills, config.get("DYNAMOD_OUT_DIR")):
+            print(f"{r['doc_id']}: " + (f"import file {r['path']}" if r["ok"] else "CHECK - " + "; ".join(r["problems"])))
+        sys.exit(0)
     if args.process:
-        sys.exit(run_cli(args.process, args.out, args.mode))
+        sys.exit(run_cli(args.process, args.out, args.mode, args.dynamod))
     run_gui()
 
 

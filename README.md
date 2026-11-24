@@ -81,6 +81,36 @@ Ctrl+V on the main window imports a copied image (e.g. from WeChat).
   `Documents\Doc2Excel\Inbox`) is imported within a few seconds and moved to
   `Inbox\imported\`. Point your scanner software there for hands-free import.
 
+## SmartAcc DynaMod supplier bills
+
+For entering supplier invoices / credit notes into SmartAcc DynaMod
+(Supplier Invoice or Supplier Credit Note → Import):
+
+1. In **Settings → SmartAcc DynaMod**, pick your own `OCR进单整理模板.xlsx`.
+   Its `供应商` sheet (name keyword → Supplier ID) and `条码对照` sheet
+   (Supplier ID + item code → system barcode, PCS per unit) are read from that
+   file every time. It stays on your PC; nothing from it is built into the app.
+2. Scan the bills, check them in the review screen, tick them and press
+   **DynaMod 进单**. You get:
+   - a filled copy of your template (`表头` + `明细`, your formulas kept) to
+     review in Excel. Lines that need you are marked in `标记`; a carton size
+     that is unknown is left blank and yellow (the template would count it as 1);
+   - one import file per bill (`<SupplierID>-<bill no>.xlsx`, a copy of
+     DynaMod's own blank template, values only) in the import folder
+     (default `C:\Opp`) for every bill that passes all checks: Supplier ID
+     found, every line has a barcode, PCS known, and 明细 total = 纸本小计.
+3. For the others: fix them in the work sheet, **save it in Excel**, then press
+   **整理表 → 导入文件** and pick it. Import files are made from the green
+   `明细` A:E columns, one per 单据ID.
+
+Rules used (same as the template): barcode = system > handwritten > first 12
+digits of the printed EAN; PCS = qty × PCS per unit (DOZEN = 12, CTN/OTR/BOX
+need a size); Unit Price = ROUND(nett line amount ÷ PCS, 4); an FOC line of the
+same item adds to the quantity, amount unchanged.
+
+Command line: `Doc2Excel.exe --process *.jpg --dynamod OCR进单整理模板.xlsx --out 整理.xlsx`
+and `Doc2Excel.exe --from-worksheet 整理.xlsx`.
+
 ## Where API keys go
 
 Keys live **only** in the `.env` file next to the exe. They are never in the
@@ -150,12 +180,15 @@ app/
   layout.py      offline table from box positions: page flattening, deskew,
                  header-anchored columns, wrapped-line merging
   structure.py   LLM table extraction (chunked for long documents) + offline rules
+  dynamod.py     SmartAcc DynaMod: bills, 进单整理表, one import file per bill
   exporter.py    formatted .xlsx output
   sources.py     watched folder, WIA scanner, LAN address
   config.py      .env settings
   llm.py         OpenAI-compatible client + reachability check
   web/           desktop UI (index.html, app.js) and phone page (mobile.html)
 samples/         sample invoice/receipt generator
-tests/           security_test.py (server/exporter), table_test.py (table building)
+assets/dynamod/  DynaMod's blank import templates (header only)
+tests/           security_test.py (server/exporter), table_test.py (table building),
+                 dynamod_test.py (DynaMod export)
 build.ps1        PyInstaller one-file build
 ```

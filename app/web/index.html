@@ -67,6 +67,8 @@
         <option value="both" data-i18n="modeBoth"></option>
       </select>
       <button id="btnErpAll" data-i18n="erpSendChecked"></button>
+      <button id="btnDmFromWb" data-i18n="dmFromWb"></button>
+      <button id="btnDm" data-i18n="dmExport"></button>
       <button class="primary" id="btnExport" data-i18n="export"></button>
     </div>
     <div id="docList" class="doc-list"></div>
@@ -164,10 +166,31 @@
     <label><span data-i18n="erpUrl"></span><input name="ERP_URL" placeholder="http://localhost:8000" autocomplete="off"></label>
     <label><span>Token</span><input name="ERP_TOKEN" type="password" autocomplete="off"></label>
     <div class="erp-test"><button class="small" id="erpTest" data-i18n="erpTest"></button><span id="erpTestResult" class="hint"></span></div>
+    <h4 data-i18n="dmSection"></h4>
+    <p class="hint" data-i18n="dmHelp"></p>
+    <label><span data-i18n="dmWorkbook"></span><input name="DYNAMOD_WORKBOOK" autocomplete="off"><button class="small" id="dmPickWb" type="button" data-i18n="change"></button></label>
+    <label><span data-i18n="dmTemplateDir"></span><input name="DYNAMOD_TEMPLATE_DIR" autocomplete="off"></label>
+    <label><span data-i18n="dmOutDir"></span><input name="DYNAMOD_OUT_DIR" autocomplete="off"><button class="small" id="dmPickOut" type="button" data-i18n="change"></button></label>
+    <label><span>Location ID</span><input name="DYNAMOD_LOCATION" autocomplete="off"></label>
     <p class="hint" data-i18n="keyNote"></p>
     <div class="dialog-actions">
       <button id="setCancel" data-i18n="cancel"></button>
       <button class="primary" id="setSave" data-i18n="save"></button>
+    </div>
+  </div>
+</div>
+
+<!-- DynaMod results -->
+<div id="dmResult" class="modal hidden">
+  <div class="dialog">
+    <h2 data-i18n="dmResultTitle"></h2>
+    <p class="hint" id="dmNotes"></p>
+    <table class="grid dm-table" id="dmTable"></table>
+    <p class="hint" data-i18n="dmImportTip"></p>
+    <div class="dialog-actions">
+      <button id="dmOpenWb" data-i18n="dmOpenWb"></button>
+      <button id="dmOpenDir" data-i18n="dmOpenDir"></button>
+      <button class="primary" id="dmClose" data-i18n="close"></button>
     </div>
   </div>
 </div>

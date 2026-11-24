@@ -291,13 +291,17 @@ def _header_cols(head: list[dict], below: list[list[dict]]) -> list[dict]:
     ("Unit" + "Price") unless the rows below show separate values under each
     of them (e.g. "序号" and "品名" printed close together)."""
     def separate(a, b) -> bool:
-        hits = 0
+        # Evidence from the rows below: separate values under each heading on
+        # the same line mean two columns; one value spanning both means one.
+        apart = span = 0
         for ln in below:
-            ua = [i for i in ln if _overlap(i["x0"], i["x1"], a["x0"], a["x1"]) > 0]
-            ub = [i for i in ln if _overlap(i["x0"], i["x1"], b["x0"], b["x1"]) > 0]
-            if ua and ub and not set(map(id, ua)) & set(map(id, ub)):
-                hits += 1
-        return hits >= 2
+            ua = {id(i) for i in ln if _overlap(i["x0"], i["x1"], a["x0"], a["x1"]) > 0}
+            ub = {id(i) for i in ln if _overlap(i["x0"], i["x1"], b["x0"], b["x1"]) > 0}
+            if ua & ub:
+                span += 1
+            elif ua and ub:
+                apart += 1
+        return apart >= 1 and apart >= span
 
     cols: list[list[dict]] = []
     for g in _close_groups(head):

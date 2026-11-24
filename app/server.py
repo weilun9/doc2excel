@@ -14,7 +14,7 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.serving import make_server
 from werkzeug.utils import secure_filename
 
-from . import config, erp, llm, ocr, sources, structure, exporter
+from . import config, dynamod, erp, llm, ocr, sources, structure, exporter
 
 LOCAL_ADDRS = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 
@@ -261,6 +261,52 @@ class AppServer:
             tmp = Path(tempfile.gettempdir()) / f"doc2excel_{int(time.time())}.xlsx"
             exporter.export(docs, tmp, mode)
             return send_file(tmp, as_attachment=True, download_name="Doc2Excel.xlsx")
+
+        # ---- SmartAcc DynaMod supplier bills ----
+        def _dm_paths():
+            wbk = config.get("DYNAMOD_WORKBOOK")
+            if not wbk or not Path(wbk).is_file():
+                return None, (jsonify({"ok": False, "error": "dm_workbook_missing"}), 400)
+            return Path(wbk), None
+
+        @app.post("/api/dynamod/export")
+        @local_only
+        def dm_export():
+            """Selected docs -> 进单整理表 (copy of the user's template) + one
+            import file per bill that passes every check."""
+            wbk, err = _dm_paths()
+            if err:
+                return err
+            body = request.json or {}
+            docs = [store.get(i) for i in body.get("ids") or []]
+            docs = [d for d in docs if d and d.get("table")]
+            if not docs:
+                return jsonify({"ok": False, "error": "no_ready_docs"}), 400
+            path = body.get("path")
+            if not path:
+                return jsonify({"ok": False, "error": "path_required"}), 400
+            lk = dynamod.Lookups.from_workbook(wbk)
+            loc = config.get("DYNAMOD_LOCATION") or dynamod.DEFAULT_LOCATION
+            bills = [dynamod.bill_from_doc(d, lk, loc) for d in docs]
+            out = dynamod.write_workbook(bills, wbk, path)
+            results = dynamod.write_import_files(bills, config.get("DYNAMOD_OUT_DIR"))
+            return jsonify({"ok": True, "workbook": str(out), "out_dir": config.get("DYNAMOD_OUT_DIR"),
+                            "results": results})
+
+        @app.post("/api/dynamod/from_workbook")
+        @local_only
+        def dm_from_workbook():
+            """Edited 整理表 (saved by Excel) -> import files from 明细 A:E."""
+            path = (request.json or {}).get("path")
+            if not path or not Path(path).is_file() or Path(path).suffix.lower() != ".xlsx":
+                return jsonify({"ok": False, "error": "bad_path"}), 400
+            try:
+                bills, notes = dynamod.bills_from_workbook(path)
+            except KeyError:
+                return jsonify({"ok": False, "error": "dm_not_workbook"}), 400
+            results = dynamod.write_import_files(bills, config.get("DYNAMOD_OUT_DIR"))
+            return jsonify({"ok": True, "out_dir": config.get("DYNAMOD_OUT_DIR"), "results": results,
+                            "notes": notes})
 
         @app.get("/api/settings")
         @local_only

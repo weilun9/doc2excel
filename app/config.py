@@ -41,6 +41,13 @@ DEFAULTS: dict[str, str] = {
     # user makes in the ERP (Scan documents > Connect Doc2Excel).
     "ERP_URL": "",
     "ERP_TOKEN": "",
+    # SmartAcc DynaMod supplier-bill import ("DynaMod 进单"):
+    #   the user's own 进单整理模板 (供应商 + 条码对照 sheets, stays on this PC),
+    #   DynaMod's blank import templates, the import-file folder, and Location ID.
+    "DYNAMOD_WORKBOOK": "",
+    "DYNAMOD_TEMPLATE_DIR": r"C:\SmartAcc\DynaMod\Import Template",
+    "DYNAMOD_OUT_DIR": r"C:\Opp",
+    "DYNAMOD_LOCATION": "HQ",
     "WATCH_DIR": str(DOCS_HOME / "Inbox"),
     "SERVER_PORT": "8765",
     "UI_LANG": "zh",

@@ -184,3 +184,10 @@ table.grid.fields { max-width: 720px; border: 1px solid var(--line); }
 .erp-test .hint { margin: 0; }
 .ok-text { color: var(--brand) !important; }
 .err-text { color: var(--err) !important; }
+
+/* DynaMod results */
+.dm-table { width: 100%; margin-top: 10px; }
+.dm-table td { vertical-align: top; font-size: 13px; padding: 4px 6px; }
+.dm-table td.ok { color: var(--brand); white-space: nowrap; }
+.dm-table td.bad { color: var(--warn); white-space: nowrap; }
+.dm-table .why { color: var(--muted); font-size: 12px; }
