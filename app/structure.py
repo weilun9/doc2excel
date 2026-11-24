@@ -9,17 +9,20 @@ import json
 import re
 from collections import Counter
 
-from . import config, llm
+from . import config, layout, llm
 
 MAX_CHARS = 14000
 
-SYSTEM_PROMPT = """You convert OCR text of a scanned business document into a structured table.
+SYSTEM_PROMPT_HEAD = """You convert OCR text of a scanned business document into a structured table.
 The OCR text keeps the printed lines; ' | ' separates columns that were apart on the page.
 OCR may contain small errors: fix obvious ones only when certain (e.g. O vs 0 in amounts),
 and restore spaces OCR dropped between words ("CopierPaper" -> "Copier Paper",
 "19/11/202614:32" -> "19/11/2026 14:32").
 
-Return ONLY a JSON object with this shape:
+"""
+
+# Output schema and rules, shared with the one-step vision prompt in ocr.py.
+SCHEMA_RULES = """Return ONLY a JSON object with this shape:
 {
   "doc_type": "invoice | receipt | statement | quotation | delivery_order | purchase_order | form | other",
   "title": "short title, e.g. 'Invoice INV-001 - ABC Sdn Bhd'",
@@ -38,6 +41,8 @@ Rules:
 - If the document has no repeating records, put everything in fields and return
   columns ["Item", "Value"] with rows copied from fields.
 - Never invent data that is not in the text."""
+
+SYSTEM_PROMPT = SYSTEM_PROMPT_HEAD + SCHEMA_RULES
 
 
 def choose_mode() -> str:
@@ -91,24 +96,100 @@ def normalize(table: dict) -> dict:
     }
 
 
+def _chunks(text: str, limit: int = MAX_CHARS) -> list[str]:
+    """Split OCR text into pieces under `limit`, cutting only at line ends
+    (page markers are lines too), so long statements are not truncated."""
+    if len(text) <= limit:
+        return [text]
+    out, cur = [], ""
+    for line in text.split("\n"):
+        line = line[:limit]
+        if cur and len(cur) + len(line) + 1 > limit:
+            out.append(cur)
+            cur = ""
+        cur = cur + "\n" + line if cur else line
+    if cur:
+        out.append(cur)
+    return out
+
+
+def merge_tables(parts: list[dict]) -> dict:
+    """Join tables from consecutive chunks/pages of one document. Columns come
+    from the first part that has rows; later rows are matched by column name
+    (or by position when the names differ but the count is the same)."""
+    parts = [normalize(p) for p in parts if p]
+    if not parts:
+        return normalize({})
+    base = next((p for p in parts if p["rows"]), parts[0])
+    cols = base["columns"]
+    fields, seen = [], set()
+    rows = []
+    for p in parts:
+        for f in p["fields"]:
+            if f["key"].lower() not in seen:
+                seen.add(f["key"].lower())
+                fields.append(f)
+        if not p["rows"]:
+            continue
+        if p["columns"] == cols or len(p["columns"]) == len(cols):
+            rows.extend(p["rows"])
+            continue
+        idx = {c.lower(): k for k, c in enumerate(p["columns"])}
+        for r in p["rows"]:
+            rows.append([r[idx[c.lower()]] if c.lower() in idx else "" for c in cols])
+    first = parts[0]
+    return normalize({"doc_type": first["doc_type"], "title": first["title"] or base["title"],
+                      "fields": fields, "columns": cols, "rows": rows})
+
+
 def ai_structure(text: str) -> dict:
-    if len(text) > MAX_CHARS:
-        text = text[:MAX_CHARS] + "\n[...truncated]"
-    reply = llm.chat(
-        config.get("LLM_BASE_URL"), config.get("LLM_API_KEY"), config.get("LLM_MODEL"),
-        [{"role": "system", "content": SYSTEM_PROMPT},
-         {"role": "user", "content": "OCR text:\n" + text}],
-        json_mode=True, max_tokens=8000,
-    )
-    return normalize(_extract_json(reply))
+    chunks = _chunks(text)
+    parts: list[dict] = []
+    for n, chunk in enumerate(chunks, 1):
+        user = "OCR text:\n" + chunk
+        if len(chunks) > 1:
+            note = f"This is part {n} of {len(chunks)} of ONE document."
+            if parts and parts[0]["rows"]:
+                note += (" If its records continue the same table, use exactly these columns: "
+                         + json.dumps(parts[0]["columns"], ensure_ascii=False) + ".")
+            user = note + "\n" + user
+        reply = llm.chat(
+            config.get("LLM_BASE_URL"), config.get("LLM_API_KEY"), config.get("LLM_MODEL"),
+            [{"role": "system", "content": SYSTEM_PROMPT},
+             {"role": "user", "content": user}],
+            json_mode=True, max_tokens=8000,
+        )
+        parts.append(normalize(_extract_json(reply)))
+    return merge_tables(parts)
 
 
 _KV = re.compile(r"^\s*([^:：|]{1,30}?)\s*[:：]\s*(.+?)\s*$")
 _NUM = re.compile(r"[-+]?\(?[$€£¥RM]*\s*\d[\d,]*(\.\d+)?\)?%?$")
 
 
-def rule_structure(pages: list[list[list[str]]]) -> dict:
-    rows = [r for page in pages for r in page]
+def layout_structure(pages: list[list[list[str]]], boxes: list[list[dict]]) -> dict | None:
+    """Offline table from OCR box positions (see layout.py). Tables on several
+    pages with the same columns (e.g. a long statement) are joined. Returns
+    None when no header row is found, so the caller can fall back."""
+    fields = _kv_fields([r for page in pages for r in page])[0]
+    columns, rows = None, []
+    for items in boxes:
+        if not items:
+            continue
+        t = layout.build_table(items)
+        if not t:
+            continue
+        if columns is None:
+            columns = t["columns"]
+        elif len(t["columns"]) != len(columns):
+            continue
+        rows.extend(t["rows"])
+    if columns is None:
+        return None
+    return normalize({"doc_type": "other", "fields": fields, "columns": columns, "rows": rows})
+
+
+def _kv_fields(rows: list[list[str]]) -> tuple[list[dict], set]:
     fields: list[dict] = []
     used = set()
     # Label: value pairs, either in one cell ("Date: 1/1") or two cells.
@@ -123,6 +204,12 @@ def rule_structure(pages: list[list[list[str]]]) -> dict:
                 and re.search(r"total|tax|sst|gst|subtotal|amount|合计|总计|税|金额|小计", r[0], re.I))):
             fields.append({"key": r[0].rstrip(":： "), "value": r[1]})
             used.add(i)
+    return fields, used
+
+
+def rule_structure(pages: list[list[list[str]]]) -> dict:
+    rows = [r for page in pages for r in page]
+    fields, used = _kv_fields(rows)
 
     # Largest block of consecutive rows with the same (>=3) column count.
     best: tuple[int, int, int] | None = None  # (start, end, ncols)
@@ -154,12 +241,26 @@ def rule_structure(pages: list[list[list[str]]]) -> dict:
     return normalize({"doc_type": "other", "fields": fields, "columns": cols, "rows": body})
 
 
+def offline(ocr_result: dict) -> dict:
+    boxes = ocr_result.get("boxes")
+    if boxes:
+        t = layout_structure(ocr_result["pages"], boxes)
+        if t is not None:
+            return t
+    return rule_structure(ocr_result["pages"])
+
+
 def run(ocr_result: dict) -> tuple[dict, str, str | None]:
-    """Returns (table, mode_used, warning)."""
+    """Returns (table, mode_used, warning).
+    ocr_result: {"text", "pages", optional "boxes" (positions per page) and
+    "vision_tables" (tables the vision model already built, one per page)}."""
+    vt = ocr_result.get("vision_tables")
+    if vt and all(vt):
+        return merge_tables(vt), "ai", None
     mode = choose_mode()
     if mode == "online":
         try:
             return ai_structure(ocr_result["text"]), "ai", None
         except (llm.LLMError, ValueError, json.JSONDecodeError) as e:
-            return rule_structure(ocr_result["pages"]), "rules", f"AI failed, used offline rules: {e}"
-    return rule_structure(ocr_result["pages"]), "rules", None
+            return offline(ocr_result), "rules", f"AI failed, used offline rules: {e}"
+    return offline(ocr_result), "rules", None

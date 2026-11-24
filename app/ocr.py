@@ -12,13 +12,12 @@ from __future__ import annotations
 import base64
 import io
 import re
-import statistics
 import threading
 from pathlib import Path
 
 from PIL import Image, ImageOps
 
-from . import config, llm
+from . import config, layout, llm, structure
 
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp", ".gif"}
 try:  # iPhone photos
@@ -75,21 +74,43 @@ def load_pages(path: Path) -> list[Image.Image]:
 
 def pdf_text_rows(path: Path) -> list[list[list[str]]] | None:
     """Rows per page from a PDF text layer, or None if the PDF is a scan."""
+    res = pdf_text(path)
+    return res[0] if res else None
+
+
+def pdf_text(path: Path) -> tuple[list, list] | None:
+    """(rows per page, positioned boxes per page) from a PDF text layer, or
+    None if the PDF is a scan. Uses pdfium's text-run rectangles, so columns
+    come from real x positions instead of counting spaces."""
     import pypdfium2 as pdfium
     pdf = pdfium.PdfDocument(str(path))
     try:
-        pages = []
+        pages, boxes = [], []
         total = 0
         for i in range(min(len(pdf), MAX_PDF_PAGES)):
-            text = pdf[i].get_textpage().get_text_range()
+            page = pdf[i]
+            tp = page.get_textpage()
+            text = tp.get_text_range()
             total += len(text.strip())
-            rows = []
-            for line in text.replace("\r", "").split("\n"):
-                cells = [c for c in _split_spaces(line) if c]
-                if cells:
-                    rows.append(cells)
+            _, ph = page.get_size()
+            items = []
+            for r in range(tp.count_rects()):
+                left, bottom, right, top = tp.get_rect(r)
+                t = tp.get_text_bounded(left, bottom, right, top).strip()
+                if t:
+                    items.append({"x0": round(left, 1), "x1": round(right, 1), "y0": round(ph - top, 1),
+                                  "y1": round(ph - bottom, 1), "t": " ".join(t.split()), "s": 1.0})
+            if items:
+                rows = layout.lines_to_rows(items)
+            else:
+                rows = []
+                for line in text.replace("\r", "").split("\n"):
+                    cells = [c for c in _split_spaces(line) if c]
+                    if cells:
+                        rows.append(cells)
             pages.append(rows)
-        return pages if total > 40 else None
+            boxes.append(items)
+        return (pages, boxes) if total > 40 else None
     finally:
         pdf.close()
 
@@ -109,52 +130,22 @@ def _shrink(img: Image.Image, side: int) -> Image.Image:
     return img.resize((int(w * r), int(h * r)), Image.LANCZOS)
 
 
-def rapid_rows(img: Image.Image) -> list[list[str]]:
+def rapid_page(img: Image.Image) -> tuple[list[list[str]], list[dict]]:
+    """OCR one page. Returns (rows of cells, positioned boxes for layout.py).
+    Phone photos are flattened first (paper outline -> straight rectangle)."""
     import numpy as np
-    img = _shrink(img, MAX_OCR_SIDE)
-    result, _ = _rapid()(np.array(img))
+    arr = layout.flatten_page(np.array(_shrink(img, MAX_OCR_SIDE)))
+    result, _ = _rapid()(arr)
     if not result:
-        return []
-    items = []
-    for box, text, score in result:
-        xs = [p[0] for p in box]
-        ys = [p[1] for p in box]
-        text = str(text).strip()
-        if not text:
-            continue
-        items.append({
-            "x0": min(xs), "x1": max(xs), "yc": (min(ys) + max(ys)) / 2,
-            "h": max(ys) - min(ys), "t": text,
-            "cw": (max(xs) - min(xs)) / max(len(text), 1),
-        })
-    if not items:
-        return []
-    med_h = statistics.median(i["h"] for i in items) or 10
-    items.sort(key=lambda i: i["yc"])
-    lines: list[list[dict]] = []
+        return [], []
+    items = layout.items_from_ocr(result)
     for it in items:
-        if lines:
-            cur = lines[-1]
-            mean_y = sum(i["yc"] for i in cur) / len(cur)
-            if abs(it["yc"] - mean_y) < 0.6 * med_h:
-                cur.append(it)
-                continue
-        lines.append([it])
-    rows = []
-    for line in lines:
-        line.sort(key=lambda i: i["x0"])
-        cells = [line[0]["t"]]
-        prev = line[0]
-        for it in line[1:]:
-            gap = it["x0"] - prev["x1"]
-            cw = max((prev["cw"] + it["cw"]) / 2, 1)
-            if gap < 1.6 * cw:
-                cells[-1] = cells[-1] + ("" if _cjk(cells[-1][-1:]) else " ") + it["t"]
-            else:
-                cells.append(it["t"])
-            prev = it
-        rows.append([_respace(c) for c in cells])
-    return rows
+        it["t"] = _respace(it["t"])
+    rows = layout.lines_to_rows(items)
+    for it in items:  # keep stored state small
+        for k in ("x0", "x1", "y0", "y1"):
+            it[k] = round(it[k], 1)
+    return rows, items
 
 
 _CJK_LAT = re.compile(r"(?<=[㐀-鿿])(?=[A-Za-z0-9])|(?<=[A-Za-z0-9])(?=[㐀-鿿])")
@@ -175,20 +166,21 @@ def _respace(text: str) -> str:
     return " ".join(out)
 
 
-def _cjk(ch: str) -> bool:
-    return bool(ch) and "　" <= ch <= "鿿"
+VISION_TABLE_PROMPT = (
+    "This image is one page of a scanned or photographed business document. Read it "
+    "and build the table directly from what you SEE: use the printed column positions, "
+    "keep a blank cell blank, and keep a description that wraps over several printed "
+    "lines in ONE row.\n"
+    "Also return \"lines\": every printed line top to bottom, columns separated by ' | ', "
+    "numbers/dates/codes exactly as printed.\n"
+) + structure.SCHEMA_RULES.replace(
+    'Return ONLY a JSON object with this shape:\n{',
+    'Return ONLY a JSON object with this shape:\n{\n  "lines": ["Invoice No: | INV-001"],', 1)
 
 
-VISION_PROMPT = (
-    "Transcribe ALL text in this document image exactly as printed, top to bottom. "
-    "Keep each printed line on its own output line. When a line has separate columns "
-    "(tables, label/value pairs, line items), separate the columns with ' | '. "
-    "Keep numbers, currency symbols, dates and codes exactly as printed. "
-    "Output only the transcription, no comments, no markdown."
-)
-
-
-def vision_rows(img: Image.Image) -> list[list[str]]:
+def vision_page(img: Image.Image) -> tuple[list[list[str]], dict]:
+    """One call per page: the vision model returns the transcription AND the
+    table, so the layout it sees is not lost in a text-only second step."""
     img = _shrink(img, 2000)
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=88)
@@ -196,19 +188,22 @@ def vision_rows(img: Image.Image) -> list[list[str]]:
     content = llm.chat(
         config.get("VISION_BASE_URL"), config.get("VISION_API_KEY"), config.get("VISION_MODEL"),
         [{"role": "user", "content": [
-            {"type": "text", "text": VISION_PROMPT},
+            {"type": "text", "text": VISION_TABLE_PROMPT},
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
         ]}],
-        timeout=180,
+        timeout=240, max_tokens=8000,
     )
-    content = content.strip().strip("`")
+    try:
+        data = structure._extract_json(content)
+    except ValueError as e:  # includes json.JSONDecodeError
+        raise llm.LLMError(f"vision reply was not JSON: {e}") from e
     rows = []
-    for line in content.splitlines():
-        cells = [c.strip() for c in line.split("|")]
+    for line in data.get("lines") or []:
+        cells = [c.strip() for c in str(line).split("|")]
         cells = [c for c in cells if c]
         if cells:
             rows.append(cells)
-    return rows
+    return rows, structure.normalize(data)
 
 
 def choose_engine() -> str:
@@ -234,19 +229,34 @@ def rows_to_text(pages: list[list[list[str]]]) -> str:
 def run(path: Path, pages: list[Image.Image], progress=None) -> dict:
     """OCR a document. Returns {engine, pages: [[cells]...], text}."""
     if path.suffix.lower() in PDF_EXT:
-        rows = pdf_text_rows(path)
-        if rows:
-            return {"engine": "pdf-text", "pages": rows, "text": rows_to_text(rows)}
+        got = pdf_text(path)
+        if got:
+            rows, boxes = got
+            res = {"engine": "pdf-text", "pages": rows, "text": rows_to_text(rows)}
+            if any(boxes):
+                res["boxes"] = boxes
+            return res
     engine = choose_engine()
-    out_pages = []
+    out_pages, boxes, tables = [], [], []
     for i, img in enumerate(pages):
         if progress:
             progress(i + 1, len(pages), engine)
         if engine == "vision":
             try:
-                out_pages.append(vision_rows(img))
+                rows, table = vision_page(img)
+                out_pages.append(rows)
+                boxes.append([])
+                tables.append(table)
                 continue
             except llm.LLMError:
                 engine = "rapidocr"  # fall back for this and the remaining pages
-        out_pages.append(rapid_rows(img))
-    return {"engine": engine, "pages": out_pages, "text": rows_to_text(out_pages)}
+        rows, items = rapid_page(img)
+        out_pages.append(rows)
+        boxes.append(items)
+        tables.append(None)
+    res = {"engine": engine, "pages": out_pages, "text": rows_to_text(out_pages)}
+    if any(boxes):
+        res["boxes"] = boxes
+    if tables and all(tables):
+        res["vision_tables"] = tables
+    return res

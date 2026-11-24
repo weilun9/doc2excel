@@ -121,8 +121,8 @@ class Store:
         d = self.get(doc_id)
         if not d:
             return False
-        if kind == "ai" and not d.get("text"):
-            kind = "full"
+        if kind == "ai" and (not d.get("text") or d.get("vision_tables")):
+            kind = "full"  # the vision model builds the table while reading the image
         d["status"], d["error"], d["warning"] = "queued", None, None
         self.q.put((doc_id, kind))
         return True
@@ -149,9 +149,12 @@ class Store:
                     pages = ocr.load_pages(path)
                     self._set(d, pages=len(pages))
                     res = ocr.run(path, pages, progress=lambda i, n, e: self._set(d, progress=f"{i}/{n}", engine=e))
-                    self._set(d, engine=res["engine"], text=res["text"], ocr_pages=res["pages"])
+                    self._set(d, engine=res["engine"], text=res["text"], ocr_pages=res["pages"],
+                              ocr_boxes=res.get("boxes"), vision_tables=res.get("vision_tables"))
                 self._set(d, status="ai", progress="")
-                table, mode, warn = structure.run({"text": d["text"], "pages": d["ocr_pages"]})
+                table, mode, warn = structure.run({"text": d["text"], "pages": d["ocr_pages"],
+                                                   "boxes": d.get("ocr_boxes"),
+                                                   "vision_tables": d.get("vision_tables")})
                 self._set(d, table=table, ai_table=table, mode=mode, warning=warn,
                           status="ready", confirmed=False, progress="")
             except Exception as e:  # keep the worker alive whatever happens

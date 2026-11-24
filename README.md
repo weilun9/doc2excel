@@ -12,8 +12,11 @@ A Windows desktop app that turns scanned or photographed paper documents
   PDFs that already contain text skip OCR.
 - **AI builds the table:** an OpenAI-compatible LLM (DeepSeek by default)
   extracts header fields (supplier, invoice no., dates, totals…) and line
-  items. When the API is unreachable or no key is set, the app switches to
-  offline layout rules automatically.
+  items. Long documents are sent in parts, so no rows are cut off. With a
+  vision model, one call per page reads the image and builds the table.
+  When the API is unreachable or no key is set, the app switches to offline
+  layout rules automatically: columns are anchored on the table's header row,
+  so blank cells stay blank and wrapped descriptions stay in one row.
 - **Review, then export:** compare with the original side by side; use Edit,
   Undo, Cancel and Confirm to correct the table; export a formatted `.xlsx`
   (one sheet per document, a combined sheet + summary, or both).
@@ -143,13 +146,16 @@ app/
   main.py        entry point: window (pywebview / Edge WebView2), CLI mode
   server.py      local Flask server: desktop API (localhost only) + phone page (token)
   store.py       document queue and background worker (OCR -> table)
-  ocr.py         RapidOCR / vision LLM / PDF text layer -> rows of cells
-  structure.py   LLM table extraction + offline layout rules
+  ocr.py         RapidOCR / vision LLM / PDF text layer -> rows of cells + box positions
+  layout.py      offline table from box positions: page flattening, deskew,
+                 header-anchored columns, wrapped-line merging
+  structure.py   LLM table extraction (chunked for long documents) + offline rules
   exporter.py    formatted .xlsx output
   sources.py     watched folder, WIA scanner, LAN address
   config.py      .env settings
   llm.py         OpenAI-compatible client + reachability check
   web/           desktop UI (index.html, app.js) and phone page (mobile.html)
 samples/         sample invoice/receipt generator
+tests/           security_test.py (server/exporter), table_test.py (table building)
 build.ps1        PyInstaller one-file build
 ```
