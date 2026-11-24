@@ -129,7 +129,8 @@ def run_gui():
     api._server = server
     window = webview.create_window(
         "Doc2Excel", f"http://127.0.0.1:{port}/", js_api=api,
-        width=1440, height=900, min_size=(1000, 640))
+        width=1440, height=900, min_size=(1000, 640),
+        text_select=True)  # OCR text and table cells can be selected and copied
     api._window = window
     try:
         webview.start(private_mode=True)

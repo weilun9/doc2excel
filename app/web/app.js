@@ -374,9 +374,10 @@ function renderReview() {
 
 function renderGrids() {
   const tb = RV.draft, ed = RV.editing;
-  const dis = ed ? "" : "disabled";
+  // Read-only (not disabled) outside edit mode, so text can still be selected and copied.
+  const dis = ed ? "" : "readonly";
   $("#tTitle").value = tb.title || "";
-  $("#tTitle").disabled = !ed;
+  $("#tTitle").readOnly = !ed;
   $("#fieldsGrid").innerHTML = `<tr><th>${t("key")}</th><th>${t("value")}</th><th class="edit-only"></th></tr>` +
     tb.fields.map((f, i) => `<tr>
       <td><input data-f="${i}" data-k="key" value="${esc(f.key)}" ${dis}></td>
@@ -494,12 +495,26 @@ async function copyText(text) {
   await navigator.clipboard.writeText(text);
   return true;
 }
+// Text the user selected in the current tab (OCR text, or inside one table cell).
+function selectedText() {
+  const el = document.activeElement;
+  if (el && el.tagName === "INPUT" && el.closest("#tabTable") && el.selectionEnd > el.selectionStart) {
+    return el.value.slice(el.selectionStart, el.selectionEnd);
+  }
+  const sel = window.getSelection();
+  const tab = activeTab() === "text" ? $("#tabText") : $("#tabTable");
+  if (sel && !sel.isCollapsed && tab.contains(sel.anchorNode) && tab.contains(sel.focusNode)) return sel.toString();
+  return "";
+}
+// Keep focus (and the selection inside a cell) when the Copy button is pressed.
+$("#rvCopy").addEventListener("mousedown", (e) => e.preventDefault());
 $("#rvCopy").onclick = async () => {
   const isText = activeTab() === "text";
+  const part = selectedText();
   try {
-    const ok = await copyText(isText ? (RV.doc.text || "") : tableAsDelimited("\t"));
+    const ok = await copyText(part || (isText ? (RV.doc.text || "") : tableAsDelimited("\t")));
     if (ok === false) throw new Error("clipboard busy");
-    toast(t(isText ? "copiedText" : "copiedTable"));
+    toast(t(part ? "copiedSel" : isText ? "copiedText" : "copiedTable"));
   } catch (e) {
     toast(t("copyFail", { e: e.message || e }), 5000);
   }

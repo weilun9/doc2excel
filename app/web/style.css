@@ -135,18 +135,18 @@ table.grid.fields { max-width: 720px; border: 1px solid var(--line); }
 .grid th input { color: inherit; font-weight: 600; }
 .grid td.rn, .grid th.rn { width: 36px; text-align: center; color: var(--muted); background: #f5f7fa; font-size: 12px; }
 .grid th.rn { color: #fff; background: #1f4e79; }
-.grid input:disabled { color: var(--text); }
-.grid th input:disabled { color: #fff; }
-.grid.fields th input:disabled, .grid.fields input:disabled { color: var(--text); }
+.grid input[readonly] { color: var(--text); }
+.grid th input[readonly] { color: #fff; }
+.grid.fields th input[readonly], .grid.fields input[readonly] { color: var(--text); }
 .grid tr:nth-child(even) td { background: #fafbfd; }
 .editing .grid input:focus { background: #fffbe6; box-shadow: inset 0 0 0 2px #f0b429; }
 .x { border: none; background: none; color: var(--muted); padding: 2px 6px; font-size: 12px; }
 .grid th .x { color: #cfe0f0; }
 .edit-only { display: none; }
 .editing .edit-only { display: revert; }
-.editing .grid td input:not(:disabled) { background: #fff; }
-.editing .grid th input:not(:disabled) { background: rgba(255,255,255,.14); color: #fff; }
-.editing .grid.fields th input:not(:disabled) { color: var(--text); }
+.editing .grid td input:not([readonly]) { background: #fff; }
+.editing .grid th input:not([readonly]) { background: rgba(255,255,255,.14); color: #fff; }
+.editing .grid.fields th input:not([readonly]) { color: var(--text); }
 .grid td.rn, .grid th.rn { min-width: 36px; }
 
 .dialog { width: 620px; max-height: 92vh; overflow: auto; background: var(--panel); border-radius: 12px; padding: 20px 24px; box-shadow: var(--shadow-lg); }
@@ -191,3 +191,8 @@ table.grid.fields { max-width: 720px; border: 1px solid var(--line); }
 .dm-table td.ok { color: var(--brand); white-space: nowrap; }
 .dm-table td.bad { color: var(--warn); white-space: nowrap; }
 .dm-table .why { color: var(--muted); font-size: 12px; }
+
+/* Selectable content; app chrome (toolbars, tabs, lists) stays unselectable. */
+header, .toolbar, .review-head, .tabs, .side, .doc-list { user-select: none; }
+.tab-body pre, .grid input, .title-input { user-select: text; cursor: text; }
+.grid input[readonly]::selection, .tab-body pre::selection { background: #cfe8dc; }

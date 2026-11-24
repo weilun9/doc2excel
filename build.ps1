@@ -2,7 +2,7 @@
 #   powershell -ExecutionPolicy Bypass -File build.ps1
 # If NSIS (makensis) is installed, also builds dist\Doc2Excel-Setup-<version>.exe
 # from installer\doc2excel.nsi.
-param([string]$Version = "1.1.0")
+param([string]$Version = "1.1.1")
 # PyInstaller logs to stderr, so don't use ErrorActionPreference=Stop (PowerShell 5
 # would treat every log line as an error); check exit codes instead.
 Set-Location $PSScriptRoot

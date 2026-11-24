@@ -9,7 +9,7 @@
 
 Unicode true
 !ifndef VERSION
-  !define VERSION "1.1.0"
+  !define VERSION "1.1.1"
 !endif
 !define APP "Doc2Excel"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
