@@ -21,6 +21,8 @@ from openpyxl import Workbook, load_workbook  # noqa: E402
 from app import dynamod as dm  # noqa: E402
 
 FAILS = 0
+if hasattr(sys.stdout, "reconfigure"):  # Windows consoles default to a legacy code page
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def check(name: str, ok: bool, detail=""):

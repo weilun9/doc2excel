@@ -18,6 +18,8 @@ sys.path.insert(0, str(ROOT))
 from app import config, layout, llm, ocr, structure  # noqa: E402
 
 FAILS = 0
+if hasattr(sys.stdout, "reconfigure"):  # Windows consoles default to a legacy code page
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 
 def check(name: str, ok: bool, detail: str = ""):
