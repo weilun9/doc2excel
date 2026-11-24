@@ -1,4 +1,4 @@
-; Doc2Excel installer (NSIS 3). Per-user install, no admin rights needed:
+﻿; Doc2Excel installer (NSIS 3). Per-user install, no admin rights needed:
 ;   %LOCALAPPDATA%\Programs\Doc2Excel\Doc2Excel.exe
 ; The folder is writable, so the .env settings file can live next to the exe
 ; as the app expects. An existing .env is never overwritten.
