@@ -1,0 +1,89 @@
+# Build Doc2Excel.exe + the installer on Windows and publish them as a GitHub
+# Release. Runs when a version tag is pushed (git tag v1.1.0 && git push --tags)
+# or by hand from the Actions tab (then the files are kept as a build artifact).
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.1.0)"
+        required: true
+        default: "1.1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: v
+        shell: pwsh
+        run: |
+          $v = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}".TrimStart("v") } else { "${{ inputs.version }}" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          .\.venv\Scripts\python -m pip install --upgrade pip
+          .\.venv\Scripts\pip install -r requirements.txt
+
+      - name: Tests
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python tests\table_test.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python tests\dynamod_test.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python tests\security_test.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\NSIS\makensis.exe")) { choco install nsis -y --no-progress }
+
+      - name: Build exe + installer
+        shell: pwsh
+        run: |
+          .\build.ps1 -Version ${{ steps.v.outputs.version }}
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (-not (Test-Path "dist\Doc2Excel-Setup-${{ steps.v.outputs.version }}.exe")) { throw "installer missing" }
+
+      - name: Smoke test (headless run of the built exe)
+        shell: pwsh
+        run: |
+          $env:D2X_AI_MODE = "offline"; $env:D2X_OCR_MODE = "local"
+          $p = Start-Process dist\Doc2Excel.exe -ArgumentList "--process","samples\sample_invoice.png","--out","$env:RUNNER_TEMP\smoke.xlsx" -Wait -PassThru
+          if ($p.ExitCode -ne 0 -or -not (Test-Path "$env:RUNNER_TEMP\smoke.xlsx")) { throw "exe smoke test failed ($($p.ExitCode))" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Doc2Excel-${{ steps.v.outputs.version }}
+          path: |
+            dist/Doc2Excel-Setup-${{ steps.v.outputs.version }}.exe
+            dist/Doc2Excel.exe
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = "${{ steps.v.outputs.version }}"
+          gh release create "${{ github.ref_name }}" "dist\Doc2Excel-Setup-$v.exe" "dist\Doc2Excel.exe" `
+            --title "Doc2Excel $v" `
+            --notes "Windows installer: Doc2Excel-Setup-$v.exe (per-user, no admin). Doc2Excel.exe = portable single file."
