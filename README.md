@@ -26,6 +26,13 @@ the folder watcher and all processing. Nothing autostarts.
 
 ## Run it
 
+**Installer:** run `Doc2Excel-Setup-<version>.exe`. It installs for the current
+user only (no admin) into `%LOCALAPPDATA%\Programs\Doc2Excel`, adds Start menu
+and desktop shortcuts, and keeps your existing `.env` when upgrading. Settings
+then live in `%LOCALAPPDATA%\Programs\Doc2Excel\.env`.
+
+**Or without installing:**
+
 1. Put `Doc2Excel.exe` in any folder, for example `F:\Apps\Doc2Excel\`.
 2. Copy `.env.example` to `.env` in the **same folder** as the exe and fill in
    your key (see below). You can also skip this and use **Settings** in the app,
@@ -166,7 +173,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\pip install -r requirements.txt
 .\.venv\Scripts\python run.py                     # run the app from source
 .\.venv\Scripts\python samples\make_samples.py    # generate test documents
-powershell -ExecutionPolicy Bypass -File build.ps1   # -> dist\Doc2Excel.exe
+powershell -ExecutionPolicy Bypass -File build.ps1   # -> dist\Doc2Excel.exe (+ installer if NSIS is installed)
 ```
 
 ## Project layout
@@ -190,5 +197,6 @@ samples/         sample invoice/receipt generator
 assets/dynamod/  DynaMod's blank import templates (header only)
 tests/           security_test.py (server/exporter), table_test.py (table building),
                  dynamod_test.py (DynaMod export)
-build.ps1        PyInstaller one-file build
+build.ps1        PyInstaller one-file build (+ NSIS installer)
+installer/       doc2excel.nsi: per-user installer, keeps .env on upgrade
 ```
