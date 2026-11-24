@@ -5,6 +5,7 @@ cd /d "%~dp0"
 echo === %date% %time% tests > build.log
 .venv\Scripts\python tests\table_test.py >> build.log 2>&1
 .venv\Scripts\python tests\dynamod_test.py >> build.log 2>&1
+.venv\Scripts\python tests\updater_test.py >> build.log 2>&1
 echo === build >> build.log
 powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 >> build.log 2>&1
 echo === finished exit=%errorlevel% >> build.log

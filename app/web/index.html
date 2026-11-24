@@ -31,6 +31,11 @@
     <button class="ghost" id="btnSettings" data-i18n="settings"></button>
   </div>
 </header>
+<div id="updateBar" class="update-bar hidden" role="status">
+  <span id="updateMsg"></span>
+  <button class="small primary" id="btnUpdate" data-i18n="updateBtn"></button>
+  <button class="ghost small" id="updateClose" aria-label="close">✕</button>
+</div>
 
 <main class="layout">
   <aside class="side">
@@ -172,6 +177,10 @@
     <label><span data-i18n="dmTemplateDir"></span><input name="DYNAMOD_TEMPLATE_DIR" autocomplete="off"></label>
     <label><span data-i18n="dmOutDir"></span><input name="DYNAMOD_OUT_DIR" autocomplete="off"><button class="small" id="dmPickOut" type="button" data-i18n="change"></button></label>
     <label><span>Location ID</span><input name="DYNAMOD_LOCATION" autocomplete="off"></label>
+    <h4 data-i18n="verSection"></h4>
+    <div class="erp-test ver-row"><span><span data-i18n="verCurrent"></span> <b id="verCurrent"></b></span>
+      <button class="small" id="btnCheckUpdate" type="button" data-i18n="checkUpdate"></button>
+      <span id="checkResult" class="hint"></span></div>
     <p class="hint" data-i18n="keyNote"></p>
     <div class="dialog-actions">
       <button id="setCancel" data-i18n="cancel"></button>

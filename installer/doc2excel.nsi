@@ -8,8 +8,12 @@
 ; Output: dist\Doc2Excel-Setup-<version>.exe
 
 Unicode true
+; Silent use (the in-app updater runs "Setup.exe /S /RESTART"):
+;   /S        no windows; waits up to 30 s for a running Doc2Excel to exit
+;   /RESTART  start Doc2Excel again after a successful install
+
 !ifndef VERSION
-  !define VERSION "1.1.1"
+  !define VERSION "1.1.2"
 !endif
 !define APP "Doc2Excel"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
@@ -31,6 +35,7 @@ VIAddVersionKey "LegalCopyright" ""
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
+!include "FileFunc.nsh"
 !define MUI_ICON "..\assets\icon.ico"
 !define MUI_UNICON "..\assets\icon.ico"
 !define MUI_ABORTWARNING
@@ -49,15 +54,38 @@ LangString RunningMsg ${LANG_SIMPCHINESE} "Doc2Excel 正在运行。请先关闭
 LangString RunningMsg ${LANG_ENGLISH} "Doc2Excel is running. Close its window, then press OK to continue."
 
 Function .onInit
-  !insertmacro MUI_LANGDLL_DISPLAY
+  ${IfNot} ${Silent}
+    !insertmacro MUI_LANGDLL_DISPLAY
+  ${EndIf}
+FunctionEnd
+
+; /RESTART: the in-app updater closed Doc2Excel to install; open it again.
+Function .onInstSuccess
+  ${GetParameters} $R0
+  ClearErrors
+  ${GetOptions} $R0 "/RESTART" $R1
+  ${IfNot} ${Errors}
+    Exec '"$INSTDIR\${APP}.exe"'
+  ${EndIf}
 FunctionEnd
 
 ; The app holds a mutex while its window is open (see app/main.py).
+; Silent mode: no dialog, wait up to 30 s for the app to exit, else fail.
 !macro WaitForAppClosed
+  StrCpy $1 0
   retry:
   System::Call 'kernel32::OpenMutexW(i 0x00100000, i 0, w "Local\Doc2Excel.SingleInstance") p.r0'
   ${If} $0 P<> 0
     System::Call 'kernel32::CloseHandle(p r0)'
+    ${If} ${Silent}
+      ${If} $1 < 30
+        IntOp $1 $1 + 1
+        Sleep 1000
+        Goto retry
+      ${EndIf}
+      SetErrorLevel 2
+      Abort
+    ${EndIf}
     MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "$(RunningMsg)" IDOK retry
     Abort
   ${EndIf}

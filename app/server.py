@@ -14,7 +14,8 @@ from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from werkzeug.serving import make_server
 from werkzeug.utils import secure_filename
 
-from . import config, dynamod, erp, llm, ocr, sources, structure, exporter
+from . import config, dynamod, erp, llm, ocr, sources, structure, exporter, updater
+from .version import VERSION
 
 LOCAL_ADDRS = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 
@@ -42,9 +43,10 @@ def _port_taken(port: int) -> bool:
 
 
 class AppServer:
-    def __init__(self, store, port: int):
+    def __init__(self, store, port: int, upd: updater.Updater | None = None):
         self.store = store
         self.port = port
+        self.updater = upd or updater.Updater()
         self.token = secrets.token_urlsafe(9)        # phone page token (shown in the QR code)
         self.api_key = secrets.token_urlsafe(24)     # desktop UI token, never leaves this PC
         self.phone_uploads = 0
@@ -163,7 +165,31 @@ class AppServer:
                 "llm_model": s.get("LLM_MODEL", ""),
                 "vision_ready": llm.vision_ready(),
                 "erp_ready": erp.configured(),
+                "version": VERSION,
             })
+
+        # ---- self-update (this PC only; install uses only what check found) ----
+        @app.get("/api/update/check")
+        @local_only
+        def update_check():
+            try:
+                info = self.updater.check()
+            except updater.UpdateError as e:
+                return jsonify({"ok": False, "current": self.updater.current, "error": str(e)}), 200
+            keep = ("current", "latest", "update", "dev", "page")
+            return jsonify({"ok": True, **{k: info[k] for k in keep if k in info}})
+
+        @app.post("/api/update/install")
+        @local_only
+        def update_install():
+            if not self.updater.install():
+                return jsonify({"ok": False, "error": "no_update"}), 400
+            return jsonify({"ok": True})
+
+        @app.get("/api/update/status")
+        @local_only
+        def update_status():
+            return jsonify(self.updater.status())
 
         @app.get("/api/qr.png")
         @local_only

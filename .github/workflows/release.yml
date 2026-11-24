@@ -11,7 +11,7 @@ on:
       version:
         description: "Version number (e.g. 1.1.0)"
         required: true
-        default: "1.1.0"
+        default: "1.1.2"
 
 permissions:
   contents: write
@@ -53,6 +53,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           .\.venv\Scripts\python tests\security_test.py
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python tests\updater_test.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       - name: Install NSIS
         shell: pwsh
@@ -72,6 +74,24 @@ jobs:
           $env:D2X_AI_MODE = "offline"; $env:D2X_OCR_MODE = "local"
           $p = Start-Process dist\Doc2Excel.exe -ArgumentList "--process","samples\sample_invoice.png","--out","$env:RUNNER_TEMP\smoke.xlsx" -Wait -PassThru
           if ($p.ExitCode -ne 0 -or -not (Test-Path "$env:RUNNER_TEMP\smoke.xlsx")) { throw "exe smoke test failed ($($p.ExitCode))" }
+
+      - name: Installer test (silent install + uninstall)
+        shell: pwsh
+        run: |
+          $v = "${{ steps.v.outputs.version }}"
+          $dir = "$env:LOCALAPPDATA\Programs\Doc2Excel"
+          $p = Start-Process "dist\Doc2Excel-Setup-$v.exe" -ArgumentList "/S" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "silent install failed ($($p.ExitCode))" }
+          if (-not (Test-Path "$dir\Doc2Excel.exe")) { throw "Doc2Excel.exe not installed" }
+          if (-not (Test-Path "$dir\.env")) { throw ".env not created" }
+          $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Doc2Excel"
+          if ($reg.DisplayVersion -ne $v) { throw "registry version $($reg.DisplayVersion) != $v" }
+          # _?= keeps the uninstaller in place and makes -Wait wait for it.
+          $p = Start-Process "$dir\Uninstall.exe" -ArgumentList "/S","_?=$dir" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "silent uninstall failed ($($p.ExitCode))" }
+          if (Test-Path "$dir\Doc2Excel.exe") { throw "Doc2Excel.exe still there after uninstall" }
+          if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Doc2Excel") { throw "uninstall key left" }
+          Write-Host "silent install + uninstall OK"
 
       - uses: actions/upload-artifact@v4
         with:

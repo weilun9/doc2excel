@@ -551,6 +551,8 @@ $("#btnSettings").onclick = async () => {
     } else el.value = s[el.name] ?? "";
   });
   $("#envPath").textContent = s.ENV_PATH;
+  $("#verCurrent").textContent = STATE.version || "?";
+  $("#checkResult").textContent = "";
   dlg.classList.remove("hidden");
 };
 $("#setCancel").onclick = () => $("#settings").classList.add("hidden");
@@ -580,8 +582,60 @@ $("#btnLang").onclick = async () => {
 };
 
 if (LANG) applyLang();
-refresh();
+refresh().then(() => checkUpdate(false));
 setInterval(refresh, 1500);
+
+// ---------------- self-update (GitHub Releases) ----------------
+const UPD = { latest: "", busy: false, closed: false };
+function showUpdateBar(msg, withButton) {
+  $("#updateMsg").textContent = msg;
+  $("#btnUpdate").classList.toggle("hidden", !withButton);
+  $("#updateClose").classList.toggle("hidden", UPD.busy);
+  $("#updateBar").classList.remove("hidden");
+}
+async function checkUpdate(manual) {
+  const out = $("#checkResult");
+  if (manual) { out.className = "hint"; out.textContent = t("checking"); }
+  let r;
+  try { r = await api("/api/update/check"); } catch (e) { r = { ok: false, error: e.message }; }
+  if (!r.ok) {
+    if (manual) { out.textContent = t("updateCheckFail", { e: r.error }); out.className = "hint err-text"; }
+    return;  // at startup a failed check (offline) stays silent
+  }
+  if (r.dev) { if (manual) out.textContent = t("updateDev"); return; }
+  if (!r.update) { if (manual) { out.textContent = t("upToDate"); out.className = "hint ok-text"; } return; }
+  UPD.latest = r.latest;
+  if (manual) out.textContent = t("updateAvail", { v: r.latest });
+  if (manual || !UPD.closed) showUpdateBar(t("updateAvail", { v: r.latest }), true);
+}
+$("#btnCheckUpdate").onclick = () => checkUpdate(true);
+$("#updateClose").onclick = () => { UPD.closed = true; $("#updateBar").classList.add("hidden"); };
+$("#btnUpdate").onclick = async () => {
+  if (UPD.busy) return;
+  try {
+    await api("/api/update/install", { method: "POST", body: "{}" });
+  } catch (e) {
+    showUpdateBar(t("updateFail", { e: e.data?.error || e.message }), true);
+    return;
+  }
+  UPD.busy = true;
+  $("#settings").classList.add("hidden");
+  showUpdateBar(t("updateDownloading", { v: UPD.latest, p: 0 }), false);
+  const poll = setInterval(async () => {
+    let s;
+    try { s = await api("/api/update/status"); } catch { return; }  // app is closing
+    if (s.state === "downloading") {
+      const p = s.total ? Math.floor((s.done / s.total) * 100) : 0;
+      showUpdateBar(t("updateDownloading", { v: UPD.latest, p }), false);
+    } else if (s.state === "installing") {
+      showUpdateBar(t("updateInstalling"), false);
+    } else if (s.state === "error") {
+      clearInterval(poll);
+      UPD.busy = false;
+      showUpdateBar(t("updateFail", { e: s.error }), true);
+    }
+  }, 500);
+};
 
 
 // ---------------- AI ERP: send original files to the ERP scan queue ----------------

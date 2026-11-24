@@ -9,3 +9,4 @@ samples/out/
 build.log
 Doc2Excel.spec
 .claude/
+app/_build_version.py

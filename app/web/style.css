@@ -45,10 +45,16 @@ select { border: none; box-shadow: var(--shadow-sm); border-radius: 8px; padding
 .muted { color: var(--muted); font-weight: normal; }
 .hint { color: var(--muted); font-size: 12.5px; line-height: 1.5; margin: 8px 0 0; }
 
+body { display: flex; flex-direction: column; }
 .topbar {
-  height: 54px; display: flex; align-items: center; gap: 16px; padding: 0 18px;
+  height: 54px; flex-shrink: 0; display: flex; align-items: center; gap: 16px; padding: 0 18px;
   background: var(--panel); border-bottom: 1px solid var(--line);
 }
+.update-bar { flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 7px 18px;
+  background: var(--brand-2); color: var(--brand); border-bottom: 1px solid var(--line); font-size: 13px; }
+.update-bar #updateClose { margin-left: auto; color: var(--brand); }
+.update-bar.hidden, .update-bar .hidden { display: none; }
+.erp-test.ver-row { margin-left: 0; flex-wrap: wrap; }
 .brand { font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 8px; }
 .brand small { font-weight: 400; color: var(--muted); font-size: 13px; }
 .logo { background: var(--brand); color: #fff; border-radius: 7px; width: 28px; height: 28px; display: grid; place-items: center; }
@@ -59,7 +65,7 @@ select { border: none; box-shadow: var(--shadow-sm); border-radius: 8px; padding
 .chip.on { background: var(--brand-2); color: var(--brand); }
 .chip.off { background: #fff4e0; color: var(--warn); }
 
-.layout { display: flex; height: calc(100% - 54px); }
+.layout { display: flex; flex: 1; min-height: 0; }
 .side { width: 290px; padding: 16px; overflow: auto; border-right: 1px solid var(--line); background: #fafbfc; }
 .card { background: var(--panel); box-shadow: var(--shadow-sm); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
 .card h3 { margin: 0 0 10px; font-size: 14px; }
