@@ -1,6 +1,6 @@
 # Build Doc2Excel.exe + the installer on Windows and publish them as a GitHub
-# Release. Runs when a version tag is pushed (git tag v1.1.0 && git push --tags)
-# or by hand from the Actions tab (then the files are kept as a build artifact).
+# Release v<version>. Runs when a version tag is pushed (git tag v1.1.0 &&
+# git push --tags) or by hand: Actions tab > release > Run workflow.
 name: release
 
 on:
@@ -78,12 +78,11 @@ jobs:
             dist/Doc2Excel.exe
 
       - name: Publish release
-        if: github.ref_type == 'tag'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $v = "${{ steps.v.outputs.version }}"
-          gh release create "${{ github.ref_name }}" "dist\Doc2Excel-Setup-$v.exe" "dist\Doc2Excel.exe" `
+          gh release create "v$v" "dist\Doc2Excel-Setup-$v.exe" "dist\Doc2Excel.exe" --target "${{ github.sha }}" `
             --title "Doc2Excel $v" `
             --notes "Windows installer: Doc2Excel-Setup-$v.exe (per-user, no admin). Doc2Excel.exe = portable single file."
