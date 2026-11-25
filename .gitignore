@@ -10,3 +10,5 @@ build.log
 Doc2Excel.spec
 .claude/
 app/_build_version.py
+# real supplier documents + hand-checked answers: local only (public repo)
+tests/private/
