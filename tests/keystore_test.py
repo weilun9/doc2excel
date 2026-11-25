@@ -60,7 +60,10 @@ TOKEN = "erp-" + os.urandom(8).hex()
 def main():
     config.ENV_PATH = TMP / "install" / ".env"
     config.ENV_PATH.parent.mkdir(parents=True)
-    ok(str(TMP) in config._target("LLM_API_KEY"), "credential name is tied to the (temp) settings folder")
+    # resolve(): CI temp paths can be 8.3 short names (RUNNER~1) that resolve() expands
+    ok(str(config.ENV_PATH.resolve().parent) in config._target("LLM_API_KEY")
+       and "d2x_ks_" in config._target("LLM_API_KEY"),
+       "credential name is tied to the (temp) settings folder")
     ok(keystore.backend() == "credman", "real Credential Manager backend in use")
 
     print("migration of a plain-text key")
