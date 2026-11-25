@@ -1,7 +1,8 @@
 """Score the pipeline on REAL documents against hand-checked answers.
 
-Real supplier documents are private, so they live in tests/private/ (git-
-ignored): <name>.jpg + <name>.json (see cahaya_T02-160232.json). For every
+Documents live in tests/real/ (committed) or tests/private/ (git-ignored, for
+ones that must not be public): <photo> + <name>.json (see
+tests/real/cahaya_T02-160232.json). For every
 document with its photo present, runs each combination of photo clean-up on/off
 and OCR engine (local, plus vision when one is set up) and reports how many
 lines got the right barcode, quantity, unit price and line total.
@@ -19,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PRIV = ROOT / "tests" / "private"
+DIRS = [ROOT / "tests" / "real", ROOT / "tests" / "private"]
 os.environ.setdefault("LOCALAPPDATA", tempfile.mkdtemp(prefix="d2x_real_"))
 os.environ["D2X_AI_MODE"] = "offline"   # score what OCR/vision itself gets right
 sys.path.insert(0, str(ROOT))
@@ -83,11 +84,11 @@ def main():
     engines = ["local"] + (["vision"] if want_vision and llm.vision_ready() else [])
     if want_vision and "vision" not in engines:
         print("(no vision model set up in Settings: local OCR only)")
-    cases = sorted(PRIV.glob("*.json"))
+    cases = sorted(js for d in DIRS if d.is_dir() for js in d.glob("*.json"))
     found = False
     for js in cases:
         truth = json.loads(js.read_text(encoding="utf-8"))
-        photo = PRIV / truth["photo"]
+        photo = js.parent / truth["photo"]
         if not photo.exists():
             print(f"skip {js.name}: put the original photo at {photo}")
             continue

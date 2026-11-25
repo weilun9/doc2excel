@@ -1,0 +1,23 @@
+{
+  "photo": "cahaya_T02-160232.png",
+  "note": "Hand-checked SmartAcc DynaMod entry (2026-11-25). Barcodes are the handwritten ones next to each line, mapped to system barcodes.",
+  "header": {
+    "supplier": "CAHAYA GUNUNG TRADING",
+    "invoice_no": "T02-160232",
+    "date": "13/11/2026",
+    "terms": "CASH",
+    "total": "389.10"
+  },
+  "lines": [
+    {"barcode": "955505020610", "desc": "TCSB KACANG SEPAT KULIT", "qty": 1, "price": "8.80", "total": "8.80"},
+    {"barcode": "955505020622", "desc": "POPO KACANG KARI SOYA BIJAN", "qty": 1, "price": "8.00", "total": "8.00"},
+    {"barcode": "955505020604", "desc": "TCSB POPO KACANG HIJAU", "qty": 2, "price": "8.80", "total": "17.60"},
+    {"barcode": "955505020607", "desc": "TCSB POPO KACANG CAMPURAN", "qty": 1, "price": "8.80", "total": "8.80"},
+    {"barcode": "955505020782", "desc": "POPO HAPPY HOUR", "qty": 1, "price": "10.20", "total": "10.20"},
+    {"barcode": "955505020881", "desc": "POCO MURUKU PEDAS 800G", "qty": 1, "price": "10.20", "total": "10.20"},
+    {"barcode": "955613518500", "desc": "DESA MINERAL WATER 500ML", "qty": 15, "price": "12.50", "total": "187.50"},
+    {"barcode": "955600104724", "desc": "NESCAFE BLACK ROAST CAN 240ML", "qty": 2, "price": "54.00", "total": "108.00"},
+    {"barcode": "955777121503", "desc": "SUPPER JOLLI LOLLIPOP", "qty": 1, "price": "10.00", "total": "10.00"},
+    {"barcode": "955720301955", "desc": "TROLLI CHEWING GUMMY 30'S (LOONG)", "qty": 2, "price": "10.00", "total": "20.00"}
+  ]
+}
