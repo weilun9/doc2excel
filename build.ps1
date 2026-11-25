@@ -25,7 +25,7 @@ try {
         --collect-binaries onnxruntime `
         --hidden-import pillow_heif `
         --hidden-import app._build_version `
-        --hidden-import win32cred --hidden-import win32timezone `
+        --hidden-import win32cred --hidden-import win32timezone --hidden-import truststore `
         --exclude-module tkinter --exclude-module matplotlib `
         run.py
     $code = $LASTEXITCODE

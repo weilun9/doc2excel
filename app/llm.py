@@ -3,14 +3,13 @@ from __future__ import annotations
 
 import json
 import socket
-import ssl
 import threading
 import time
 import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
-from . import config
+from . import config, net
 
 _net_cache: dict[str, tuple[float, bool]] = {}
 _net_lock = threading.Lock()
@@ -69,7 +68,7 @@ def chat(base_url: str, api_key: str, model: str, messages: list, *,
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ssl.create_default_context()) as resp:
+        with urllib.request.urlopen(req, timeout=timeout, context=net.tls_context()) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:300]

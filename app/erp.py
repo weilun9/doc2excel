@@ -13,13 +13,12 @@ from __future__ import annotations
 
 import io
 import json
-import ssl
 import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
 
-from . import config
+from . import config, net
 
 MAX_BYTES = 20 * 1024 * 1024
 DIRECT_EXT = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
@@ -55,7 +54,7 @@ def _request(method: str, path: str, body: bytes | None = None, content_type: st
         headers["Content-Type"] = content_type
     req = urllib.request.Request(_base() + path, data=body, headers=headers, method=method)
     try:
-        with urllib.request.urlopen(req, timeout=timeout, context=ssl.create_default_context()) as r:
+        with urllib.request.urlopen(req, timeout=timeout, context=net.tls_context()) as r:
             return r.status, _json(r.read())
     except urllib.error.HTTPError as e:
         data = _json(e.read())

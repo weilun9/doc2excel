@@ -9,3 +9,4 @@ pywebview==6.2.1
 pywin32==312
 qrcode==8.2
 rapidocr-onnxruntime==1.4.4
+truststore==0.10.5

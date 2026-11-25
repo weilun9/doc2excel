@@ -22,6 +22,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
+from . import net
 from .version import VERSION
 
 REPO = "weilun9/doc2excel"
@@ -58,7 +59,7 @@ def allowed_url(url: str) -> bool:
             and u.path.startswith(DOWNLOAD_PREFIX) and ".." not in u.path)
 
 
-def check(current: str = VERSION, urlopen=urllib.request.urlopen) -> dict:
+def check(current: str = VERSION, urlopen=net.urlopen) -> dict:
     """Latest release info. Raises UpdateError when GitHub can't be read."""
     if current == "dev":
         return {"current": current, "dev": True, "update": False}
@@ -83,7 +84,7 @@ def check(current: str = VERSION, urlopen=urllib.request.urlopen) -> dict:
     return info
 
 
-def download(info: dict, dest_dir: Path, progress=None, urlopen=urllib.request.urlopen) -> Path:
+def download(info: dict, dest_dir: Path, progress=None, urlopen=net.urlopen) -> Path:
     """Download the installer and verify size + sha256. Deletes it on mismatch."""
     url, size, digest = info.get("url", ""), int(info.get("size") or 0), info.get("digest", "")
     if not allowed_url(url):
@@ -143,7 +144,7 @@ class Updater:
     """Holds the last check result and the state of a running install, for the
     /api/update/* endpoints. install() only ever uses what check() found."""
 
-    def __init__(self, current: str = VERSION, urlopen=urllib.request.urlopen,
+    def __init__(self, current: str = VERSION, urlopen=net.urlopen,
                  launcher=launch_installer, on_launched=None, exit_delay: float = 1.5):
         self.current = current
         self._urlopen = urlopen

@@ -185,6 +185,17 @@ def t_updater_flow():
        "tampered download: error, installer never started")
 
 
+def t_tls():
+    print("HTTPS certificate checks")
+    import ssl
+    from app import net
+    ctx = net.tls_context()
+    ok(type(ctx).__module__.startswith("truststore"), f"Windows trust store used ({type(ctx).__module__})")
+    ok(ctx.verify_mode == ssl.CERT_REQUIRED and ctx.check_hostname, "certificates and host names are verified")
+    ok(updater.check.__defaults__[-1] is net.urlopen and updater.download.__defaults__[-1] is net.urlopen,
+       "updater uses the verified context by default")
+
+
 def t_endpoints():
     print("/api/update/* endpoints are local-only")
     from app import config
@@ -216,6 +227,6 @@ def t_endpoints():
 
 
 if __name__ == "__main__":
-    for fn in (t_versions, t_check, t_download, t_urls, t_updater_flow, t_endpoints):
+    for fn in (t_versions, t_check, t_download, t_urls, t_updater_flow, t_tls, t_endpoints):
         fn()
     print(f"\nALL {PASSED} CHECKS PASSED")
