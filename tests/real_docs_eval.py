@@ -45,15 +45,22 @@ def score(lines_text: list[str], truth: dict) -> dict:
     digit_lines = [DIGITS.sub("", ln) for ln in lines_text]
     nums = [{num(t) for t in re.findall(r"\d[\d,]*\.\d{2}", ln)} for ln in lines_text]
     res = {"barcode": 0, "price": 0, "total": 0, "qty": 0}
+    used: set[int] = set()  # each read line answers one item (same price on several items)
     for gt in truth["lines"]:
-        if any(gt["barcode"] in d for d in digit_lines):
+        if gt.get("barcode") and any(gt["barcode"] in d for d in digit_lines):
             res["barcode"] += 1
-        # price and line total printed on the same line
-        hit = [i for i, ns in enumerate(nums) if num(gt["price"]) in ns and num(gt["total"]) in ns]
+        # price and line total printed on the same line, preferring the one with the description
+        hit = [i for i, ns in enumerate(nums)
+               if i not in used and num(gt["price"]) in ns and num(gt["total"]) in ns]
+        key = re.sub(r"\W", "", gt["desc"]).upper()[:8]
+        hit.sort(key=lambda i: key not in re.sub(r"\W", "", lines_text[i]).upper())
+        hit = hit[:1]
+        used.update(hit)
         if hit:
             res["price"] += 1
             res["total"] += 1
-            if any(re.search(rf"(^|\D){gt['qty']}\s*UNIT", lines_text[i], re.I) for i in hit):
+            # the quantity as a whole number of its own on that line (not part of a price)
+            if any(re.search(rf"(?<![\d.]){gt['qty']}(?![\d.])", lines_text[i]) for i in hit):
                 res["qty"] += 1
         else:
             res["price"] += any(num(gt["price"]) in ns for ns in nums)
@@ -85,17 +92,22 @@ def main():
     if want_vision and "vision" not in engines:
         print("(no vision model set up in Settings: local OCR only)")
     cases = sorted(js for d in DIRS if d.is_dir() for js in d.glob("*.json"))
-    found = False
+    only = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if only:
+        cases = [js for js in cases if any(o in js.stem for o in only)]
+    keys = ("barcode", "qty", "price", "total", "header")
+    grand: dict = {}
     for js in cases:
         truth = json.loads(js.read_text(encoding="utf-8"))
         photo = js.parent / truth["photo"]
         if not photo.exists():
             print(f"skip {js.name}: put the original photo at {photo}")
             continue
-        found = True
         n = len(truth["lines"])
-        print(f"\n{js.stem}: {n} lines, {len(truth['header'])} header fields")
-        print(f"  {'engine':8} {'clean-up':9} {'barcode':>8} {'qty':>6} {'price':>6} {'total':>6} {'header':>7}")
+        out_of = {"barcode": sum(1 for g in truth["lines"] if g.get("barcode")), "qty": n, "price": n,
+                  "total": n, "header": len(truth["header"])}
+        print(f"\n{js.stem}: {n} lines")
+        print(f"  {'engine':8} {'clean-up':9}" + "".join(f"{k:>9}" for k in keys))
         for eng in engines:
             for on in (False, True):
                 try:
@@ -103,10 +115,17 @@ def main():
                 except llm.LLMError as e:
                     print(f"  {eng:8} {'on' if on else 'off':9} failed: {e}")
                     continue
-                print(f"  {eng:8} {'on' if on else 'off':9} {r['barcode']:>5}/{n} {r['qty']:>3}/{n} "
-                      f"{r['price']:>3}/{n} {r['total']:>3}/{n} {r['header']:>4}/{len(truth['header'])}")
-    if not found:
+                g = grand.setdefault((eng, on), {k: [0, 0] for k in keys})
+                for k in keys:
+                    g[k][0] += r[k]; g[k][1] += out_of[k]
+                print(f"  {eng:8} {'on' if on else 'off':9}" + "".join(f"{r[k]:>6}/{out_of[k]:<2}" for k in keys))
+    if not grand:
         print("\nNo real documents with photos yet.")
+        return
+    print(f"\nALL DOCUMENTS")
+    print(f"  {'engine':8} {'clean-up':9}" + "".join(f"{k:>9}" for k in keys))
+    for (eng, on), g in grand.items():
+        print(f"  {eng:8} {'on' if on else 'off':9}" + "".join(f"{g[k][0]:>6}/{g[k][1]:<2}" for k in keys))
 
 
 if __name__ == "__main__":

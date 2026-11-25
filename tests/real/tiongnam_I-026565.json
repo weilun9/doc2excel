@@ -1,0 +1,12 @@
+{
+  "photo": "tiongnam_I-026565.jpg",
+  "note": "Phone photo, 2026-11-25. Printed values read from the photo (lines add up to the total). Handwritten barcodes read by eye, unverified; handwritten prices (4.20, 3.20 ...) are not part of the answer.",
+  "header": {"supplier": "TIONG NAM PLASTIC ENTERPRISE", "invoice_no": "I-026565", "date": "04/11/2026", "total": "163.00"},
+  "lines": [
+    {"barcode": "955560150334", "desc": "BK 17 X 20\"", "qty": 10, "price": "3.30", "total": "33.00"},
+    {"barcode": "9770077004755", "desc": "STAR SEAL 18 X 21\"", "qty": 10, "price": "2.50", "total": "25.00"},
+    {"barcode": null, "desc": "PAPER D", "qty": 10, "price": "2.90", "total": "29.00"},
+    {"barcode": null, "desc": "GETAH", "qty": 1, "price": "21.00", "total": "21.00"},
+    {"barcode": "955573530048", "desc": "6.5\" SUDU-WHITE (1 CTN X 40 PKT)", "qty": 1, "price": "55.00", "total": "55.00"}
+  ]
+}

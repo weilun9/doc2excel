@@ -1,0 +1,10 @@
+{
+  "photo": "lsh_26111287.jpg",
+  "note": "Phone photo, 2026-11-25. Printed values read from the photo (lines add up to the total). Handwritten barcodes read by eye, unverified.",
+  "header": {"supplier": "LEE SENG HENG TRADING", "invoice_no": "26111287", "date": "11/11/2026", "total": "291.80"},
+  "lines": [
+    {"barcode": "9556040400006", "desc": "F&N VIT SC EOE 500g (NO RTN)", "qty": 1, "price": "194.40", "total": "194.40"},
+    {"barcode": null, "desc": "T.JAGUNG CAP BINTANG 400g (RM2.00)", "qty": 1, "price": "35.00", "total": "35.00"},
+    {"barcode": "490293126106", "desc": "S.BOTAN (S) 230GM SARDIN (RM5.80)", "qty": 12, "price": "5.20", "total": "62.40"}
+  ]
+}

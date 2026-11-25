@@ -1,13 +1,13 @@
 """Photo clean-up before OCR / AI, in the spirit of document-scanner apps:
 
-  1. crop    find the sheet of paper and warp it flat (brightness outline first,
-             then an edge-based search for pages on light backgrounds)
-  2. upscale small photos so thin strokes survive OCR
-  3. light   remove shadows, uneven lighting and yellow paper: estimate the
-             background per colour channel and divide it out (paper -> white,
-             ink keeps its colour, so red stamps stay red)
-  4. ink     gentle contrast curve: faint print gets darker, paper stays white
-  5. sharpen unsharp mask
+  crop     find the sheet of paper and warp it flat (brightness and edge
+           detectors; the largest plausible outline wins)
+  light    remove shadows, uneven lighting and yellow paper: estimate the
+           background per colour channel and divide it out (paper -> white,
+           ink keeps its colour, so red stamps stay red), then a white point
+           and a gentle curve so faint print gets darker
+  upscale, sharpen   available but OFF by default (they made OCR worse; see
+           DEFAULT_STEPS)
 
 Every step is conservative and skipped when it does not apply, so a clean
 scan comes out practically unchanged.
@@ -127,9 +127,11 @@ def _sharpen(img: np.ndarray) -> np.ndarray:
 
 
 ALL_STEPS = ("crop", "upscale", "light", "sharpen")
-# Measured on synthetic phone photos (tests/enhance_test.py): crop + light +
-# sharpen gave the best OCR; upscaling made small blurry photos worse.
-DEFAULT_STEPS = ("crop", "light", "sharpen")
+# Measured: on synthetic photos (tests/enhance_test.py) crop + light was as
+# good as anything and upscaling hurt; on real phone photos
+# (tests/real_docs_eval.py) sharpening cost quantities on thin thermal print
+# (score 102 -> 97), so the default is crop + light only.
+DEFAULT_STEPS = ("crop", "light")
 
 
 def enhance_array(img: np.ndarray, use=DEFAULT_STEPS) -> tuple[np.ndarray, list[str]]:

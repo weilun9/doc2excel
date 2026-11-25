@@ -1,0 +1,11 @@
+{
+  "photo": "lsh_26111286.jpg",
+  "note": "Phone photo, 2026-11-25. Printed values read from the photo (lines add up to the total). Handwritten barcodes read by eye, unverified.",
+  "header": {"supplier": "LEE SENG HENG TRADING", "invoice_no": "26111286", "date": "11/11/2026", "total": "197.06"},
+  "lines": [
+    {"barcode": "955675501004", "desc": "T.GANDUM CAP SAUH", "qty": 1, "price": "31.50", "total": "31.50"},
+    {"barcode": "955683311070", "desc": "T.GANDUM CAP ROS 850g", "qty": 1, "price": "29.00", "total": "29.00"},
+    {"barcode": "955605800003", "desc": "GULA PRAI (PK) 1kg", "qty": 2, "price": "66.48", "total": "132.96"},
+    {"barcode": null, "desc": "T", "qty": 1, "price": "3.60", "total": "3.60"}
+  ]
+}

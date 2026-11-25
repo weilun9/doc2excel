@@ -1,0 +1,12 @@
+{
+  "photo": "gardenia_6A10VD18.jpg",
+  "note": "Phone photo of a thermal slip, 2026-11-25. Printed values read from the photo; qty = Sale column. No handwriting.",
+  "header": {"supplier": "GARDENIA BAKERIES", "invoice_no": "6A10VD18", "date": "10/11/26", "total": "20.10"},
+  "lines": [
+    {"barcode": null, "desc": "O.C. WHITE", "qty": 2, "price": "2.55", "total": "5.10"},
+    {"barcode": null, "desc": "DELICIA-B/SCOTCH", "qty": 0, "price": "4.68", "total": "0.00"},
+    {"barcode": null, "desc": "QB CORN CR", "qty": 5, "price": "1.00", "total": "5.00"},
+    {"barcode": null, "desc": "QB STRAWBERRY CR", "qty": 5, "price": "1.00", "total": "5.00"},
+    {"barcode": null, "desc": "QB CHEESE", "qty": 5, "price": "1.00", "total": "5.00"}
+  ]
+}
