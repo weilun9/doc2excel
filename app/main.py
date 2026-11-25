@@ -64,27 +64,65 @@ class Api:
 
     def copy_text(self, content: str):
         """Clipboard via Win32, which works regardless of WebView permissions."""
-        import win32clipboard
-        for _ in range(5):
-            try:
-                win32clipboard.OpenClipboard()
-                break
-            except Exception:
-                import time
-                time.sleep(0.1)
-        else:
-            return False
-        try:
-            win32clipboard.EmptyClipboard()
-            win32clipboard.SetClipboardData(win32clipboard.CF_UNICODETEXT, content)
-        finally:
-            win32clipboard.CloseClipboard()
-        return True
+        return set_clipboard_text(content)
 
     def open_path(self, path: str):
         if path and Path(path).exists():
             os.startfile(path)  # noqa: S606 - opens the user's own exported file
         return True
+
+
+def set_clipboard_text(text: str) -> bool:
+    """Put Unicode text on the Windows clipboard. False if it stays busy.
+
+    Plain Win32 through ctypes with explicit 64-bit handle types:
+    pywin32's win32clipboard.SetClipboardData(CF_UNICODETEXT, str) corrupted
+    the heap (0xC0000374) when called from pywebview's js_api thread, which
+    killed the whole app the moment Copy was pressed."""
+    import ctypes
+    import time
+    from ctypes import wintypes
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    user32.OpenClipboard.argtypes = [wintypes.HWND]
+    user32.OpenClipboard.restype = wintypes.BOOL
+    user32.EmptyClipboard.restype = wintypes.BOOL
+    user32.CloseClipboard.restype = wintypes.BOOL
+    user32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+    user32.SetClipboardData.restype = wintypes.HANDLE
+    kernel32.GlobalAlloc.argtypes = [wintypes.UINT, ctypes.c_size_t]
+    kernel32.GlobalAlloc.restype = wintypes.HGLOBAL
+    kernel32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+    kernel32.GlobalLock.restype = ctypes.c_void_p
+    kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+    kernel32.GlobalFree.argtypes = [wintypes.HGLOBAL]
+    kernel32.GlobalFree.restype = wintypes.HGLOBAL
+    CF_UNICODETEXT, GMEM_MOVEABLE = 13, 0x0002
+
+    data = (text or "").encode("utf-16-le") + b"\x00\x00"  # NUL-terminated
+    for _ in range(10):  # another app may hold the clipboard briefly
+        if user32.OpenClipboard(None):
+            break
+        time.sleep(0.05)
+    else:
+        return False
+    try:
+        user32.EmptyClipboard()
+        h = kernel32.GlobalAlloc(GMEM_MOVEABLE, len(data))
+        if not h:
+            return False
+        p = kernel32.GlobalLock(h)
+        if not p:
+            kernel32.GlobalFree(h)
+            return False
+        ctypes.memmove(p, data, len(data))
+        kernel32.GlobalUnlock(h)
+        if not user32.SetClipboardData(CF_UNICODETEXT, h):
+            kernel32.GlobalFree(h)  # still ours only if the call failed
+            return False
+        return True  # the clipboard owns the memory now
+    finally:
+        user32.CloseClipboard()
 
 
 _mutex = None
