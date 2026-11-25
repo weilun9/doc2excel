@@ -238,7 +238,7 @@ class AppServer:
                 abort(404)
             cache = config.INBOX_DIR / "preview" / f"{doc_id}_{n}.jpg"
             if not cache.exists():
-                pages = ocr.load_pages(Path(d["file"]))
+                pages = ocr.load_pages(Path(d["file"]), enhanced=bool(d.get("enhanced")))
                 if n >= len(pages):
                     abort(404)
                 cache.parent.mkdir(parents=True, exist_ok=True)
@@ -353,6 +353,15 @@ class AppServer:
                 if (new_url and config.get(key_k) and not body.get(key_k)
                         and old_host and urlparse(new_url).hostname != old_host):
                     return jsonify({"error": "key_required", "field": key_k}), 400
+            # Model IDs: no spaces or display names ("Gemini 2.5 Flash"); Gemini
+            # also rejects upper case ("unexpected model name format").
+            import re
+            for model_k, url_k in (("LLM_MODEL", "LLM_BASE_URL"), ("VISION_MODEL", "VISION_BASE_URL")):
+                m = str(body.get(model_k, "") or "").strip()
+                host = (urlparse(str(body.get(url_k) or config.get(url_k) or "")).hostname or "").lower()
+                if m and (not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]*", m)
+                          or (host.endswith("googleapis.com") and m != m.lower())):
+                    return jsonify({"error": "bad_model", "field": model_k}), 400
             updates = {}
             for k, v in body.items():
                 if k not in config.DEFAULTS:

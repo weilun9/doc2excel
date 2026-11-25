@@ -57,6 +57,8 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           .\.venv\Scripts\python tests\keystore_test.py
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .\.venv\Scripts\python tests\enhance_test.py
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       - name: Install NSIS
         shell: pwsh

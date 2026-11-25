@@ -72,7 +72,7 @@ class Store:
 
     def summary(self) -> list[dict]:
         keep = ("id", "name", "source", "added", "status", "progress", "pages", "engine",
-                "mode", "warning", "error", "confirmed", "erp_state", "erp_message")
+                "mode", "warning", "error", "confirmed", "erp_state", "erp_message", "enhanced")
         with self.lock:
             out = []
             for i in self.order:
@@ -147,7 +147,12 @@ class Store:
                 if kind == "full" or not d.get("ocr_pages"):
                     self._set(d, status="ocr", progress="")
                     pages = ocr.load_pages(path)
-                    self._set(d, pages=len(pages))
+                    steps = []
+                    if ocr.should_enhance(path):
+                        pages, steps = ocr.enhance_pages(pages)
+                    self._set(d, pages=len(pages), enhanced=steps)
+                    for old in (config.INBOX_DIR / "preview").glob(f"{doc_id}_*.jpg"):
+                        old.unlink(missing_ok=True)  # preview must show the image that was read
                     res = ocr.run(path, pages, progress=lambda i, n, e: self._set(d, progress=f"{i}/{n}", engine=e))
                     self._set(d, engine=res["engine"], text=res["text"], ocr_pages=res["pages"],
                               ocr_boxes=res.get("boxes"), vision_tables=res.get("vision_tables"))

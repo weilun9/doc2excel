@@ -127,6 +127,7 @@ function renderDocs() {
       : `<span class="badge ${d.status}">${busy ? '<i class="spin"></i>' : ""}${t("st_" + d.status)}${d.progress ? " " + esc(d.progress) : ""}</span>`;
     const meta = [
       `${SRC_ICON[d.source] || ""} ${t("src_" + d.source)}`,
+      d.enhanced && d.enhanced.length ? t("enhancedTag") : "",
       d.engine ? t("eng_" + d.engine) : "",
       d.mode ? t("mode_" + d.mode) : "",
       d.status === "ready" || d.confirmed ? t("rows", { n: d.n_rows }) : "",
@@ -358,7 +359,7 @@ async function openReview(id, keepPage) {
 function renderReview() {
   const d = RV.doc;
   $("#rvName").textContent = d.table?.title || d.name;
-  $("#rvMeta").textContent = [d.name, d.engine && t("eng_" + d.engine), d.mode && t("mode_" + d.mode), d.confirmed ? "✓ " + t("confirmed") : ""].filter(Boolean).join(" · ");
+  $("#rvMeta").textContent = [d.name, d.enhanced && d.enhanced.length && t("enhancedTag"), d.engine && t("eng_" + d.engine), d.mode && t("mode_" + d.mode), d.confirmed ? "✓ " + t("confirmed") : ""].filter(Boolean).join(" · ");
   $("#rvWarn").textContent = d.warning || d.error || "";
   const n = d.pages || 1;
   $("#rvPages").innerHTML = n > 1 ? Array.from({ length: n }, (_, i) => `<button class="small ${i === RV.page ? "active" : ""}" data-p="${i}">${i + 1}</button>`).join("") : "";
@@ -565,8 +566,8 @@ $("#setSave").onclick = async () => {
   try {
     await api("/api/settings", { method: "POST", body: JSON.stringify(body) });
   } catch (e) {
-    if (e.data?.error === "key_required") {
-      toast(t("keyRequired"), 7000);
+    if (e.data?.error === "key_required" || e.data?.error === "bad_model") {
+      toast(t(e.data.error === "bad_model" ? "badModel" : "keyRequired"), 9000);
       $(`#settings [name="${e.data.field}"]`)?.focus();
       return;
     }

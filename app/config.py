@@ -41,6 +41,8 @@ DEFAULTS: dict[str, str] = {
     "OCR_MODE": "auto",
     # auto = AI when online and a key is set, else offline rules | online | offline
     "AI_MODE": "auto",
+    # auto = clean up photos before OCR/AI (crop page, remove shadows, sharpen) | off
+    "PHOTO_ENHANCE": "auto",
     # AI ERP connection ("发送到 ERP"): the ERP address and a scan token the
     # user makes in the ERP (Scan documents > Connect Doc2Excel).
     "ERP_URL": "",
@@ -138,7 +140,8 @@ def load() -> dict[str, str]:
         for k in DEFAULTS:  # D2X_<KEY> environment variables override .env (testing)
             if os.environ.get("D2X_" + k):
                 vals[k] = os.environ["D2X_" + k]
-        for k in ("WATCH_DIR", "SERVER_PORT", "UI_LANG", "OCR_MODE", "AI_MODE", "LLM_BASE_URL", "LLM_MODEL"):
+        for k in ("WATCH_DIR", "SERVER_PORT", "UI_LANG", "OCR_MODE", "AI_MODE", "PHOTO_ENHANCE",
+                  "LLM_BASE_URL", "LLM_MODEL"):
             if not vals.get(k):
                 vals[k] = DEFAULTS[k]
         _values.clear()

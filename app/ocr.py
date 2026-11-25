@@ -52,7 +52,31 @@ def warm_up() -> None:
         pass
 
 
-def load_pages(path: Path) -> list[Image.Image]:
+def should_enhance(path: Path) -> bool:
+    """Photos/scanned images get cleaned up first (PDF pages are left alone)."""
+    return path.suffix.lower() in IMAGE_EXT and (config.get("PHOTO_ENHANCE") or "auto").lower() != "off"
+
+
+def enhance_pages(pages: list[Image.Image]) -> tuple[list[Image.Image], list[str]]:
+    from . import enhance
+    out, used = [], []
+    for p in pages:
+        img, steps = enhance.enhance(p)
+        out.append(img)
+        used += [s for s in steps if s not in used]
+    return out, used
+
+
+def load_pages(path: Path, enhanced: bool = False) -> list[Image.Image]:
+    """Page images of a file; `enhanced` applies the same clean-up the
+    document was processed with (deterministic, so the preview matches)."""
+    pages = _load_pages(path)
+    if enhanced and path.suffix.lower() in IMAGE_EXT:
+        pages = enhance_pages(pages)[0]
+    return pages
+
+
+def _load_pages(path: Path) -> list[Image.Image]:
     ext = path.suffix.lower()
     if ext in PDF_EXT:
         import pypdfium2 as pdfium

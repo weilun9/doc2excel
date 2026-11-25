@@ -43,10 +43,16 @@ def flatten_page(img: np.ndarray) -> np.ndarray:
     """If the photo shows a sheet of paper on a darker background, warp the
     sheet to a flat rectangle. Returns the input unchanged when no clear
     four-cornered page is found (scans, screenshots, PDFs)."""
+    q = bright_page_quad(img)
+    return img if q is None else warp_quad(img, q)
+
+
+def bright_page_quad(img: np.ndarray):
+    """Corners of the large bright region (paper on a darker desk), or None."""
     try:
         import cv2
     except ImportError:
-        return img
+        return None
     h, w = img.shape[:2]
     scale = 1000 / max(h, w)
     small = cv2.resize(img, (int(w * scale), int(h * scale))) if scale < 1 else img.copy()
@@ -59,22 +65,49 @@ def flatten_page(img: np.ndarray) -> np.ndarray:
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
-        return img
+        return None
     c = max(contours, key=cv2.contourArea)
     area = cv2.contourArea(c)
     sh, sw = small.shape[:2]
     if area < 0.25 * sh * sw or area > 0.97 * sh * sw:
-        return img  # no page edge visible (already a scan) or page is tiny
+        return None  # no page edge visible (already a scan) or page is tiny
     approx = cv2.approxPolyDP(c, 0.02 * cv2.arcLength(c, True), True)
     if len(approx) != 4 or not cv2.isContourConvex(approx):
-        return img
-    pts = approx.reshape(4, 2).astype("float32") / scale
+        return None
+    return approx.reshape(4, 2).astype("float32") / scale
+
+
+def plausible_page(q: np.ndarray) -> bool:
+    """A photographed sheet: four distinct corners (tl, tr, br, bl), every
+    corner roughly square (perspective allowed) and opposite sides of similar
+    length. Rejects outlines that would twist the page when warped."""
+    if len({tuple(np.round(p, 1)) for p in q}) < 4:
+        return False
+    sides = [np.linalg.norm(q[(i + 1) % 4] - q[i]) for i in range(4)]
+    if min(sides) < 1 or min(sides[0], sides[2]) / max(sides[0], sides[2]) < 0.6 \
+            or min(sides[1], sides[3]) / max(sides[1], sides[3]) < 0.6:
+        return False
+    for i in range(4):
+        a, b = q[i - 1] - q[i], q[(i + 1) % 4] - q[i]
+        cos = float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
+        if not -0.45 < cos < 0.45:  # corner angle outside ~63..117 degrees
+            return False
+    return True
+
+
+def warp_quad(img: np.ndarray, pts: np.ndarray) -> np.ndarray:
+    """Warp the four-cornered region `pts` (any order, image coordinates) to a
+    straight rectangle. Returns `img` unchanged for implausible shapes."""
+    import cv2
+    pts = np.asarray(pts, dtype="float32").reshape(4, 2)
     s, d = pts.sum(1), np.diff(pts, axis=1).ravel()
     tl, br = pts[np.argmin(s)], pts[np.argmax(s)]
     tr, bl = pts[np.argmin(d)], pts[np.argmax(d)]
+    if not plausible_page(np.array([tl, tr, br, bl])):
+        return img
     wid = int(max(np.linalg.norm(br - bl), np.linalg.norm(tr - tl)))
     hei = int(max(np.linalg.norm(tr - br), np.linalg.norm(tl - bl)))
-    if wid < 200 or hei < 200:
+    if wid < 200 or hei < 200 or not (0.2 < wid / hei < 5):
         return img
     m = cv2.getPerspectiveTransform(np.array([tl, tr, br, bl], dtype="float32"),
                                     np.array([[0, 0], [wid - 1, 0], [wid - 1, hei - 1], [0, hei - 1]],
