@@ -185,6 +185,21 @@ def t_updater_flow():
        "tampered download: error, installer never started")
 
 
+def t_restart_env():
+    print("installer gets a clean environment")
+    os.environ.update({"_PYI_APPLICATION_HOME_DIR": r"C:\Temp\_MEI12345", "_PYI_PARENT_PROCESS_LEVEL": "1",
+                       "_PYI_ARCHIVE_FILE": r"C:\x\Doc2Excel.exe", "_MEIPASS2": r"C:\Temp\_MEI12345"})
+    try:
+        env = updater.clean_env()
+        ok(not any(k.upper().startswith(("_PYI_", "_MEIPASS")) for k in env),
+           "PyInstaller onefile variables removed (restarted exe must not use our _MEI folder)")
+        ok(env.get("PYINSTALLER_RESET_ENVIRONMENT") == "1", "PYINSTALLER_RESET_ENVIRONMENT=1 set")
+        ok(env.get("PATH") == os.environ.get("PATH"), "everything else kept")
+    finally:
+        for k in ("_PYI_APPLICATION_HOME_DIR", "_PYI_PARENT_PROCESS_LEVEL", "_PYI_ARCHIVE_FILE", "_MEIPASS2"):
+            os.environ.pop(k, None)
+
+
 def t_tls():
     print("HTTPS certificate checks")
     import ssl
@@ -227,6 +242,6 @@ def t_endpoints():
 
 
 if __name__ == "__main__":
-    for fn in (t_versions, t_check, t_download, t_urls, t_updater_flow, t_tls, t_endpoints):
+    for fn in (t_versions, t_check, t_download, t_urls, t_updater_flow, t_restart_env, t_tls, t_endpoints):
         fn()
     print(f"\nALL {PASSED} CHECKS PASSED")

@@ -126,14 +126,31 @@ def download(info: dict, dest_dir: Path, progress=None, urlopen=net.urlopen) -> 
     return path
 
 
+PYI_ENV_PREFIXES = ("_PYI_", "_MEIPASS")
+
+
+def clean_env() -> dict:
+    """This process's environment minus PyInstaller's onefile bookkeeping.
+
+    The installer passes its environment on to the Doc2Excel it restarts.
+    With _PYI_APPLICATION_HOME_DIR etc. still set, the new exe believes it is
+    the already-unpacked child of THIS process and loads python312.dll from
+    this process's _MEI temp folder, which is deleted when we exit:
+    "Failed to load Python DLL ...\\_MEIxxxx\\python312.dll"."""
+    env = {k: v for k, v in os.environ.items() if not k.upper().startswith(PYI_ENV_PREFIXES)}
+    env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"  # PyInstaller >= 6.9: start as a fresh top-level app
+    return env
+
+
 def launch_installer(path: Path):
     """Run the installer as an independent process that outlives this app."""
     flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
     args = [str(path), "/S", "/RESTART"]
+    env = clean_env()
     try:  # also leave any job object, if the job allows it
-        subprocess.Popen(args, creationflags=flags | 0x01000000, close_fds=True)  # CREATE_BREAKAWAY_FROM_JOB
+        subprocess.Popen(args, creationflags=flags | 0x01000000, close_fds=True, env=env)  # CREATE_BREAKAWAY_FROM_JOB
     except OSError:
-        subprocess.Popen(args, creationflags=flags, close_fds=True)
+        subprocess.Popen(args, creationflags=flags, close_fds=True, env=env)
 
 
 def _exit_app():

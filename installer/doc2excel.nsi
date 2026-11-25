@@ -60,11 +60,21 @@ Function .onInit
 FunctionEnd
 
 ; /RESTART: the in-app updater closed Doc2Excel to install; open it again.
+; The updater of versions up to 1.1.6 handed us its PyInstaller variables
+; (_PYI_*), which make the restarted exe look for python312.dll in the OLD,
+; already deleted _MEI temp folder. Clear them so every old version updates
+; cleanly to this one.
 Function .onInstSuccess
   ${GetParameters} $R0
   ClearErrors
   ${GetOptions} $R0 "/RESTART" $R1
   ${IfNot} ${Errors}
+    System::Call 'kernel32::SetEnvironmentVariable(t "_PYI_APPLICATION_HOME_DIR", p 0)'
+    System::Call 'kernel32::SetEnvironmentVariable(t "_PYI_ARCHIVE_FILE", p 0)'
+    System::Call 'kernel32::SetEnvironmentVariable(t "_PYI_PARENT_PROCESS_LEVEL", p 0)'
+    System::Call 'kernel32::SetEnvironmentVariable(t "_PYI_SPLASH_IPC", p 0)'
+    System::Call 'kernel32::SetEnvironmentVariable(t "_MEIPASS2", p 0)'
+    System::Call 'kernel32::SetEnvironmentVariable(t "PYINSTALLER_RESET_ENVIRONMENT", t "1")'
     Exec '"$INSTDIR\${APP}.exe"'
   ${EndIf}
 FunctionEnd
