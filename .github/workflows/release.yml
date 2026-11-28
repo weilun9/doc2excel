@@ -33,7 +33,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Version and edition
         id: v
@@ -49,7 +49,7 @@ jobs:
           "app_name=$($info.name)" >> $env:GITHUB_OUTPUT
           "repo=$($info.repo)" >> $env:GITHUB_OUTPUT
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -140,7 +140,7 @@ jobs:
           if (Test-Path $key) { throw "uninstall key left" }
           Write-Host "silent install + uninstall OK ($name in $dir)"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.v.outputs.app_id }}-${{ steps.v.outputs.version }}
           path: |
