@@ -72,7 +72,8 @@ class Store:
 
     def summary(self) -> list[dict]:
         keep = ("id", "name", "source", "added", "status", "progress", "pages", "engine",
-                "mode", "warning", "error", "confirmed", "erp_state", "erp_message", "enhanced")
+                "mode", "warning", "error", "confirmed", "erp_state", "erp_message", "enhanced",
+                "rotate", "img_ver")
         with self.lock:
             out = []
             for i in self.order:
@@ -117,6 +118,24 @@ class Store:
         self.save()
         return True
 
+    def rotate(self, doc_id: str, deg: int) -> dict | None:
+        """Turn the document's pages by `deg` (multiple of 90, + = clockwise)
+        and read it again: a sideways photo gives no usable OCR."""
+        with self.lock:
+            d = self.docs.get(doc_id)
+            if not d:
+                return None
+            d["rotate"] = (int(d.get("rotate") or 0) + int(deg)) % 360
+            d["img_ver"] = int(d.get("img_ver") or 0) + 1
+        self._clear_previews(doc_id)
+        self.requeue(doc_id, "full")
+        self.save()
+        return d
+
+    def _clear_previews(self, doc_id: str) -> None:
+        for old in (config.INBOX_DIR / "preview").glob(f"{doc_id}_*.jpg"):
+            old.unlink(missing_ok=True)
+
     def requeue(self, doc_id: str, kind: str) -> bool:
         d = self.get(doc_id)
         if not d:
@@ -146,13 +165,12 @@ class Store:
                 path = Path(d["file"])
                 if kind == "full" or not d.get("ocr_pages"):
                     self._set(d, status="ocr", progress="")
-                    pages = ocr.load_pages(path)
+                    pages = ocr.load_pages(path, rotate=int(d.get("rotate") or 0))
                     steps = []
                     if ocr.should_enhance(path):
                         pages, steps = ocr.enhance_pages(pages)
-                    self._set(d, pages=len(pages), enhanced=steps)
-                    for old in (config.INBOX_DIR / "preview").glob(f"{doc_id}_*.jpg"):
-                        old.unlink(missing_ok=True)  # preview must show the image that was read
+                    self._set(d, pages=len(pages), enhanced=steps, img_ver=int(d.get("img_ver") or 0) + 1)
+                    self._clear_previews(doc_id)  # preview must show the image that was read
                     res = ocr.run(path, pages, progress=lambda i, n, e: self._set(d, progress=f"{i}/{n}", engine=e))
                     self._set(d, engine=res["engine"], text=res["text"], ocr_pages=res["pages"],
                               ocr_boxes=res.get("boxes"), vision_tables=res.get("vision_tables"))

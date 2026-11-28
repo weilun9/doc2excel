@@ -117,7 +117,15 @@ body { display: flex; flex-direction: column; }
 .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
 .review-body { flex: 1; display: flex; min-height: 0; }
 .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.pane.original { width: 42%; border-right: 1px solid var(--line); background: #eceff3; }
+.pane.original { width: 42%; flex-shrink: 0; background: #eceff3; }
+/* Draggable divider between the photo and the recognised result. */
+.splitter { width: 9px; flex-shrink: 0; cursor: col-resize; position: relative; background: var(--panel);
+  border-left: 1px solid var(--line); border-right: 1px solid var(--line); touch-action: none; }
+.splitter::after { content: ""; position: absolute; left: 3px; top: 50%; width: 1px; height: 36px; margin-top: -18px;
+  border-left: 1px solid #b9c2cc; border-right: 1px solid #b9c2cc; }
+.splitter:hover, .splitter.dragging { background: var(--brand-2); }
+.review.resizing, .review.resizing * { cursor: col-resize !important; user-select: none !important; }
+.review.resizing iframe, .review.resizing img { pointer-events: none; }
 .pane.result { flex: 1; }
 .pane-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); }
 .pages { display: flex; gap: 4px; }

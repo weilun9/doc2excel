@@ -238,7 +238,8 @@ class AppServer:
                 abort(404)
             cache = config.INBOX_DIR / "preview" / f"{doc_id}_{n}.jpg"
             if not cache.exists():
-                pages = ocr.load_pages(Path(d["file"]), enhanced=bool(d.get("enhanced")))
+                pages = ocr.load_pages(Path(d["file"]), enhanced=bool(d.get("enhanced")),
+                                       rotate=int(d.get("rotate") or 0), display=True)
                 if n >= len(pages):
                     abort(404)
                 cache.parent.mkdir(parents=True, exist_ok=True)
@@ -263,6 +264,17 @@ class AppServer:
             if not store.requeue(doc_id, "full" if kind == "full" else "ai"):
                 abort(404)
             return jsonify({"ok": True})
+
+        @app.post("/api/doc/<doc_id>/rotate")
+        @local_only
+        def rotate_doc(doc_id):
+            deg = (request.json or {}).get("deg")
+            if deg not in (90, -90, 180):
+                return jsonify({"ok": False, "error": "bad_angle"}), 400
+            d = store.rotate(doc_id, deg)
+            if not d:
+                abort(404)
+            return jsonify({"ok": True, "rotate": d["rotate"]})
 
         @app.delete("/api/doc/<doc_id>")
         @local_only

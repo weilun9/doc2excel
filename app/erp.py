@@ -118,8 +118,21 @@ def send(doc: dict) -> dict:
     if hint:
         parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="hint"\r\n\r\n{hint}\r\n'.encode())
     parts.append(f"--{boundary}--\r\n".encode())
-    status, res = _request("POST", "/api/v1/inbox/remote", b"".join(parts),
-                           f"multipart/form-data; boundary={boundary}", timeout=120)
+    try:
+        status, res = _request("POST", "/api/v1/inbox/remote", b"".join(parts),
+                               f"multipart/form-data; boundary={boundary}", timeout=120)
+    except ERPError as e:
+        # A server may refuse a bad token with 401 before it has read the
+        # upload and close the socket; we then see "connection aborted"
+        # instead of the 401. Ask the cheap ping (no body) what is wrong.
+        if e.code != "unreachable":
+            raise
+        try:
+            ping()
+        except ERPError as why:
+            if why.code == "unauthorized":
+                raise why from e
+        raise
     if res.get("already_uploaded"):
         return {"state": "already", "erp_id": res.get("id"), "hint": hint}
     return {"state": "sent", "erp_id": res.get("id"), "hint": hint, "status": status}

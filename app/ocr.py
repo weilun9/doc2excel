@@ -57,22 +57,31 @@ def should_enhance(path: Path) -> bool:
     return path.suffix.lower() in IMAGE_EXT and (config.get("PHOTO_ENHANCE") or "auto").lower() != "off"
 
 
-def enhance_pages(pages: list[Image.Image]) -> tuple[list[Image.Image], list[str]]:
+def enhance_pages(pages: list[Image.Image], display: bool = False) -> tuple[list[Image.Image], list[str]]:
+    """Clean up photos. display=True: the version shown in the review screen
+    (identical crop/lighting, ink pushed to black for easier reading)."""
     from . import enhance
     out, used = [], []
+    black = enhance.DISPLAY_BLACK if display else enhance.OCR_BLACK
     for p in pages:
-        img, steps = enhance.enhance(p)
+        img, steps = enhance.enhance(p, black=black)
         out.append(img)
         used += [s for s in steps if s not in used]
     return out, used
 
 
-def load_pages(path: Path, enhanced: bool = False) -> list[Image.Image]:
-    """Page images of a file; `enhanced` applies the same clean-up the
-    document was processed with (deterministic, so the preview matches)."""
+def load_pages(path: Path, enhanced: bool = False, rotate: int = 0,
+               display: bool = False) -> list[Image.Image]:
+    """Page images of a file, turned `rotate` degrees clockwise; `enhanced`
+    applies the same clean-up the document was processed with (deterministic,
+    so the preview has the same crop as what was read; display=True darkens
+    the ink for people)."""
     pages = _load_pages(path)
+    rotate %= 360
+    if rotate:
+        pages = [p.rotate(-rotate, expand=True) for p in pages]  # PIL turns counter-clockwise
     if enhanced and path.suffix.lower() in IMAGE_EXT:
-        pages = enhance_pages(pages)[0]
+        pages = enhance_pages(pages, display=display)[0]
     return pages
 
 

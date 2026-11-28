@@ -112,11 +112,30 @@ def _flatten_light(img: np.ndarray) -> np.ndarray:
     return np.clip(out, 0, 255)
 
 
-def _ink_curve(f: np.ndarray) -> np.ndarray:
-    """Paper -> pure white (removes texture and JPEG noise on the page), faint
-    ink a little darker. Colours keep their hue."""
-    f = np.clip(f * (255.0 / 235.0), 0, 255)            # white point: >= 235 becomes paper
-    f = 255.0 * np.power(f / 255.0, 1.1)
+WHITE_POINT = 235   # >= this becomes paper white (removes texture and JPEG noise)
+GAMMA = 1.1         # > 1 darkens the mid-tones a little more
+# Black point: this share of the ink pixels ends up pure black.
+# Measured (real photos / synthetic photos / median ink grey, 0 = black):
+#   0.0: 102 / 96.6% / 94    0.5: 101 / 93.6% / 18    0.7: 102 / 92.9% / 12
+# Blacker ink did not help OCR and cost 3-4 points on blurry photos (strokes
+# merge), so OCR/AI get 0.0 and only the picture shown to people is blackened.
+OCR_BLACK = 0.0
+DISPLAY_BLACK = 0.7
+
+
+def _ink_curve(f: np.ndarray, black: float = OCR_BLACK) -> np.ndarray:
+    """Paper -> pure white, ink -> darker. With a black point, it is measured
+    on the ink itself (the darkest strokes stay black, grey print is pulled
+    down to black), so weak, grey text becomes solid dark text.
+    Colours keep their hue."""
+    gray = f.mean(axis=2)
+    lo = 0.0
+    ink = gray[gray < 0.75 * WHITE_POINT]
+    if black and ink.size > 0.001 * gray.size:
+        lo = float(np.percentile(ink, black * 100))
+        lo = min(lo, 0.6 * WHITE_POINT)  # never treat light-grey paper detail as ink
+    f = np.clip((f - lo) * (255.0 / max(1.0, WHITE_POINT - lo)), 0, 255)
+    f = 255.0 * np.power(f / 255.0, GAMMA)
     return np.clip(f, 0, 255).astype(np.uint8)
 
 
@@ -134,8 +153,10 @@ ALL_STEPS = ("crop", "upscale", "light", "sharpen")
 DEFAULT_STEPS = ("crop", "light")
 
 
-def enhance_array(img: np.ndarray, use=DEFAULT_STEPS) -> tuple[np.ndarray, list[str]]:
-    """RGB uint8 array -> (enhanced RGB uint8 array, steps applied)."""
+def enhance_array(img: np.ndarray, use=DEFAULT_STEPS, black: float = OCR_BLACK) -> tuple[np.ndarray, list[str]]:
+    """RGB uint8 array -> (enhanced RGB uint8 array, steps applied).
+    `black`: OCR_BLACK for what OCR/AI read, DISPLAY_BLACK for what people see
+    (same crop and lighting, only the ink is darker)."""
     cv2 = _cv2()
     if cv2 is None or img.ndim != 3 or min(img.shape[:2]) < 50:
         return img, []
@@ -154,7 +175,7 @@ def enhance_array(img: np.ndarray, use=DEFAULT_STEPS) -> tuple[np.ndarray, list[
         img = cv2.resize(img, (int(w * r), int(h * r)), interpolation=cv2.INTER_CUBIC)
         steps.append("upscale")
     if "light" in use:
-        img = _ink_curve(_flatten_light(img))
+        img = _ink_curve(_flatten_light(img), black)
         steps.append("light")
     if "sharpen" in use:
         img = _sharpen(img)
@@ -162,6 +183,6 @@ def enhance_array(img: np.ndarray, use=DEFAULT_STEPS) -> tuple[np.ndarray, list[
     return img, steps
 
 
-def enhance(img: Image.Image, use=DEFAULT_STEPS) -> tuple[Image.Image, list[str]]:
-    arr, steps = enhance_array(np.array(img.convert("RGB")), use)
+def enhance(img: Image.Image, use=DEFAULT_STEPS, black: float = OCR_BLACK) -> tuple[Image.Image, list[str]]:
+    arr, steps = enhance_array(np.array(img.convert("RGB")), use, black)
     return (Image.fromarray(arr) if steps else img), steps

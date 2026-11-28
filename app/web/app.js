@@ -16,6 +16,7 @@ function t(key, vars) {
 function applyLang() {
   document.documentElement.lang = LANG;
   document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => (el.title = t(el.dataset.i18nTitle)));
   $("#btnLang").textContent = LANG === "zh" ? "EN" : "中文";
   renderChips();
   renderDocs();
@@ -363,7 +364,8 @@ function renderReview() {
   $("#rvWarn").textContent = d.warning || d.error || "";
   const n = d.pages || 1;
   $("#rvPages").innerHTML = n > 1 ? Array.from({ length: n }, (_, i) => `<button class="small ${i === RV.page ? "active" : ""}" data-p="${i}">${i + 1}</button>`).join("") : "";
-  $("#rvImg").src = keyed(`/api/doc/${d.id}/page/${RV.page}.jpg`);
+  // v= changes when the page image changes (rotation / re-read), so the browser reloads it
+  $("#rvImg").src = keyed(`/api/doc/${d.id}/page/${RV.page}.jpg?v=${d.img_ver || 0}-${d.rotate || 0}`);
   $("#rvImg").style.width = (RV.zoom * 100) + "%";
   $("#ocrText").textContent = d.text || "";
   $("#review").classList.toggle("editing", RV.editing);
@@ -467,6 +469,48 @@ document.addEventListener("keydown", (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === "z" && RV.editing && document.activeElement?.tagName !== "INPUT") { e.preventDefault(); $("#rvUndo").click(); }
 });
 $("#rvPages").addEventListener("click", (e) => { const p = e.target.dataset.p; if (p !== undefined) { RV.page = +p; renderReview(); } });
+async function rotateDoc(deg) {
+  const d = RV.doc;
+  if (!d || RV.editing) return;
+  if ((d.confirmed || JSON.stringify(RV.draft) !== JSON.stringify(d.table || RV.draft)) && !confirm(t("rotateConfirm"))) return;
+  try {
+    await api(`/api/doc/${d.id}/rotate`, { method: "POST", body: JSON.stringify({ deg }) });
+  } catch (e) {
+    return toast(String(e.message || e), 5000);
+  }
+  toast(t("rotating"), 4000);
+  await openReview(d.id, true);   // shows the turned image now; the table follows when re-read
+  refresh();
+}
+$("#rotLeft").onclick = () => rotateDoc(-90);
+$("#rotRight").onclick = () => rotateDoc(90);
+
+// Divider between photo and result: drag to change the split, double-click to reset.
+(() => {
+  const split = $("#splitter"), left = $("#review .pane.original"), body = $("#review .review-body");
+  const KEY = "d2x.split";
+  const apply = (pct) => { left.style.width = Math.min(85, Math.max(15, pct)) + "%"; };
+  try { const v = parseFloat(localStorage.getItem(KEY)); if (v) apply(v); } catch {}
+  split.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    split.setPointerCapture(e.pointerId);
+    split.classList.add("dragging");
+    $("#review .review").classList.add("resizing");
+    const r = body.getBoundingClientRect();
+    const move = (ev) => apply(((ev.clientX - r.left) / r.width) * 100);
+    const up = () => {
+      split.removeEventListener("pointermove", move);
+      split.classList.remove("dragging");
+      $("#review .review").classList.remove("resizing");
+      try { localStorage.setItem(KEY, parseFloat(left.style.width)); } catch {}
+    };
+    split.addEventListener("pointermove", move);
+    split.addEventListener("pointerup", up, { once: true });
+    split.addEventListener("pointercancel", up, { once: true });
+  });
+  split.addEventListener("dblclick", () => { apply(42); try { localStorage.removeItem(KEY); } catch {} });
+})();
+
 $("#zoomIn").onclick = () => { RV.zoom = Math.min(4, RV.zoom * 1.25); $("#rvImg").style.width = RV.zoom * 100 + "%"; };
 $("#zoomOut").onclick = () => { RV.zoom = Math.max(0.3, RV.zoom / 1.25); $("#rvImg").style.width = RV.zoom * 100 + "%"; };
 // ---- copy / save: OCR text tab -> plain text; table tab -> spreadsheet text ----

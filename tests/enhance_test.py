@@ -133,8 +133,45 @@ def t_pipeline():
     pages, steps = ocr.enhance_pages(ocr.load_pages(p))
     again = ocr.load_pages(p, enhanced=True)
     ok(np.array_equal(np.array(pages[0]), np.array(again[0])), "preview shows exactly the image that was read")
+    shown = ocr.load_pages(p, enhanced=True, display=True)[0]
+    ok(shown.size == pages[0].size, "preview has the same crop as what was read")
+    ink = lambda im: float(np.median([v for v in np.asarray(im.convert("L")).ravel() if v < 128]))
+    ok(ink(shown) < ink(pages[0]) - 20, f"preview ink is darker ({ink(pages[0]):.0f} -> {ink(shown):.0f}, 0 = black)")
+    w, h = ocr.load_pages(p)[0].size
+    ok(ocr.load_pages(p, rotate=90)[0].size == (h, w) and ocr.load_pages(p, rotate=180)[0].size == (w, h),
+       "rotate 90 swaps width/height, 180 keeps them")
+    a = np.asarray(ocr.load_pages(p, rotate=90)[0]); b = np.asarray(ocr.load_pages(p)[0])
+    ok(np.array_equal(a, np.rot90(b, k=-1)), "rotate 90 = clockwise")
     config.save({"PHOTO_ENHANCE": "off"})
     ok(not ocr.should_enhance(p), "off: photos used as they are")
+
+
+def t_rotate_api():
+    print("rotate endpoint")
+    from app.server import AppServer
+    from app.store import Store
+    st = Store()
+    srv = AppServer(st, 8765)
+    c = srv.app.test_client()
+    h = {"Host": "127.0.0.1:8765", "X-D2X-Key": srv.api_key}
+    env = {"REMOTE_ADDR": "127.0.0.1"}
+    src = TMP / "rot.jpg"
+    Image.open(ROOT / "samples" / "sample_receipt.jpg").save(src)
+    d = st.add_file(src)
+    r = c.post(f"/api/doc/{d['id']}/rotate", json={"deg": 90}, headers=h, environ_base=env)
+    ok(r.status_code == 200 and r.get_json()["rotate"] == 90 and st.get(d["id"])["status"] == "queued",
+       "rotate right: saved as 90 and queued to be read again")
+    c.post(f"/api/doc/{d['id']}/rotate", json={"deg": -90}, headers=h, environ_base=env)
+    c.post(f"/api/doc/{d['id']}/rotate", json={"deg": -90}, headers=h, environ_base=env)
+    ok(st.get(d["id"])["rotate"] == 270, "two turns left from 90 -> 270")
+    r = c.post(f"/api/doc/{d['id']}/rotate", json={"deg": 45}, headers=h, environ_base=env)
+    ok(r.status_code == 400, "only quarter turns accepted")
+    r = c.post(f"/api/doc/{d['id']}/rotate", json={"deg": 90}, headers={"Host": "127.0.0.1:8765"}, environ_base=env)
+    ok(r.status_code == 403, "rotate needs the desktop key")
+    r = c.get(f"/api/doc/{d['id']}/page/0.jpg?k={srv.api_key}", headers={"Host": "127.0.0.1:8765"}, environ_base=env)
+    im = Image.open(__import__("io").BytesIO(r.data))
+    w, hh = Image.open(src).size
+    ok(r.status_code == 200 and (im.width > im.height) == (hh > w), "preview shows the turned page")
 
 
 def t_model_names():
@@ -160,6 +197,6 @@ def t_model_names():
 
 
 if __name__ == "__main__":
-    for fn in (t_quads, t_ocr, t_pipeline, t_model_names):
+    for fn in (t_quads, t_ocr, t_pipeline, t_rotate_api, t_model_names):
         fn()
     print(f"\nALL {PASSED} CHECKS PASSED")

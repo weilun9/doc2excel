@@ -341,6 +341,38 @@ check("Revoked token -> clear 'make a new token' message", r.get("code") == "una
       and "new token" in r.get("error", ""), str(r))
 erp_srv.shutdown()
 
+
+# a server that refuses a bad token BEFORE reading the upload and drops the
+# connection: the client sees "connection aborted", not the 401
+class EarlyReject(FakeERP):
+    def do_POST(self):
+        self._reply(401, {"error": {"code": "unauthorized", "message": "bad token", "details": None}})
+        self.close_connection = True
+        import socket as _s
+        try:
+            self.connection.shutdown(_s.SHUT_RDWR)
+        except OSError:
+            pass
+
+    def do_GET(self):
+        self._authed()  # ping: 401 for the revoked token
+
+
+early = ThreadingHTTPServer(("127.0.0.1", 0), EarlyReject)
+threading.Thread(target=early.serve_forever, daemon=True).start()
+config.save({"ERP_URL": f"http://127.0.0.1:{early.server_address[1]}"})
+config.save({"ERP_TOKEN": "revoked-token"})
+big = TMP / "big.png"
+Image.effect_noise((2600, 2600), 80).convert("RGB").save(big)  # a few MB: still uploading when refused
+from app import erp as _erp  # noqa: E402
+try:
+    _erp.send({"file": str(big), "name": "big.png"})
+    code = "sent?"
+except _erp.ERPError as e:
+    code = e.code
+check("Token refused mid-upload (connection cut) still says 'make a new token'", code == "unauthorized", code)
+early.shutdown()
+
 # ---------- report ----------
 srv.stop()
 width = max(len(n) for n, _, _ in results)
