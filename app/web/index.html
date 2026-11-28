@@ -42,18 +42,18 @@
   </div>
   <nav id="map" class="map" data-i18n-aria="mapLabel"></nav>
   <div class="spacer"></div>
-  <label class="picker"><span data-i18n="pickOcr"></span>
+  <label class="picker"><span class="cap"><span data-i18n="pickOcr"></span><em id="chipOcr"></em></span>
     <span class="select-wrap"><select id="selOcr">
       <option value="auto" data-i18n="ocrOptAuto"></option>
       <option value="local" data-i18n="ocrOptLocal"></option>
       <option value="vision" data-i18n="ocrOptVision"></option>
-    </select><em id="chipOcr"></em></span></label>
-  <label class="picker"><span data-i18n="pickAi"></span>
+    </select></span></label>
+  <label class="picker"><span class="cap"><span data-i18n="pickAi"></span><em id="chipAi"></em></span>
     <span class="select-wrap"><select id="selAi">
       <option value="auto" data-i18n="aiOptAuto"></option>
       <option value="online" data-i18n="aiOptOnline"></option>
       <option value="offline" data-i18n="aiOptOffline"></option>
-    </select><em id="chipAi"></em></span></label>
+    </select></span></label>
   <button class="btn ghost on-ink small" id="btnLang">中文</button>
   <button class="btn ghost on-ink small" id="btnSettings" data-i18n-title="settings"><svg class="i"><use href="#i-sliders"/></svg><span data-i18n="settings"></span></button>
 </header>

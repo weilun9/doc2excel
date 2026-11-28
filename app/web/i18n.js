@@ -94,7 +94,7 @@ window.I18N = {
     updateInstalling: "正在安装，Doc2Excel 会自动关闭并重新打开…",
     updateFail: "更新失败：{e}", updateCheckFail: "检查更新失败：{e}",
     // ---- Midnight Transit layout ----
-    mapLabel: "处理进度", stInbox: "全部", stRead: "识别", stBuild: "整理", stReview: "待审核", stConfirmed: "已确认", stErrors: "出错",
+    mapLabel: "处理进度", stInbox: "全部", stRead: "识别", stBuild: "整理", stReview: "待审核", stConfirmed: "已确认", stErrors: "出错", stExported: "已导出 Excel",
     brExcel: "Excel", brDm: "DynaMod", brErp: "ERP", filterHint: "点一下只看这一站的文档，再点一下取消",
     engLocal: "本地 OCR", engVision: "AI 视觉", engRules: "本地规则", engNoKey: "未设置 key",
     inbox: "单据", docsCount: "{n} 个", selectOne: "选中这个文档",
@@ -220,7 +220,7 @@ window.I18N = {
     updateInstalling: "Installing; Doc2Excel will close and reopen by itself…",
     updateFail: "Update failed: {e}", updateCheckFail: "Could not check for updates: {e}",
     // ---- Midnight Transit layout ----
-    mapLabel: "Processing line", stInbox: "Inbox", stRead: "Read", stBuild: "Build", stReview: "Review", stConfirmed: "Confirmed", stErrors: "Errors",
+    mapLabel: "Processing line", stInbox: "Inbox", stRead: "Read", stBuild: "Build", stReview: "Review", stConfirmed: "Confirmed", stErrors: "Errors", stExported: "Exported to Excel",
     brExcel: "Excel", brDm: "DynaMod", brErp: "ERP", filterHint: "Click to show only this station; click again to show all",
     engLocal: "Local OCR", engVision: "AI vision", engRules: "Local rules", engNoKey: "No key set",
     inbox: "Inbox", docsCount: "{n} documents", selectOne: "Select this document",

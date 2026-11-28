@@ -297,10 +297,12 @@ class AppServer:
             path = body.get("path")
             if path:
                 out = exporter.export(docs, path, mode)
+                store.mark_exported([d["id"] for d in docs])
                 return jsonify({"ok": True, "path": str(out)})
             # Browser fallback (dev mode): stream the file.
             tmp = Path(tempfile.gettempdir()) / f"doc2excel_{int(time.time())}.xlsx"
             exporter.export(docs, tmp, mode)
+            store.mark_exported([d["id"] for d in docs])
             return send_file(tmp, as_attachment=True, download_name="Doc2Excel.xlsx")
 
         # ---- SmartAcc DynaMod supplier bills ----

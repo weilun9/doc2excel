@@ -94,7 +94,7 @@ class Store:
     def summary(self) -> list[dict]:
         keep = ("id", "name", "source", "added", "status", "progress", "pages", "engine",
                 "mode", "warning", "error", "confirmed", "erp_state", "erp_message", "enhanced",
-                "rotate", "img_ver")
+                "rotate", "img_ver", "exported_at")
         with self.lock:
             out = []
             for i in self.order:
@@ -117,6 +117,15 @@ class Store:
             d["confirmed"] = bool(confirmed)
         self.save()
         return d
+
+    def mark_exported(self, doc_ids: list[str]) -> None:
+        """Remember when documents last went into an Excel export (for the line map)."""
+        now = time.time()
+        with self.lock:
+            for i in doc_ids:
+                if i in self.docs:
+                    self.docs[i]["exported_at"] = now
+        self.save()
 
     def set_erp(self, doc_id: str, state: str, message: str = "", erp_id=None) -> None:
         """Remember the last "send to ERP" result: sent | already | failed."""

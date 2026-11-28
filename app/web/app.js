@@ -163,14 +163,20 @@ function renderMap() {
   if (n("errors")) stations.splice(4, 0, ["errors", t("stErrors"), n("errors")]);
   const hot = n("review") ? "review" : null;
   const erp = docs.filter(erpDone).length;
+  const xl = docs.filter((d) => d.exported_at).length;
+  const sel = (k) => (FILTER === k ? " sel" : "");
+  // Branches leave the line after "Confirmed": y=9 is the line; Excel up, DynaMod straight, ERP down.
   const html = `<div class="stations">${stations.map(([k, label, c]) =>
     `<button class="station${k === hot ? " hot" : ""}${k === "errors" ? " err" : ""}${FILTER === k && k ? " sel" : ""}" data-st="${k}" title="${esc(t("filterHint"))}">
       <span class="ring"></span><span class="lab">${esc(label)} <span class="n">${c}</span></span></button>`).join("")}</div>
-    <div class="branches" aria-hidden="true">
-      <svg width="54" height="44" viewBox="0 0 54 44"><path d="M2 10 L14 -2 H48" stroke="#1f8a4c" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
-      <path d="M2 10 H48" stroke="#e9a300" stroke-width="4" stroke-linecap="round"/><path d="M2 10 L14 22 H48" stroke="#2457c5" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
-      <span class="br excel">${esc(t("brExcel"))}</span><span class="br dm">${esc(t("brDm"))}</span>
-      <button class="br erp" data-st="erp">${esc(t("brErp"))}${erp ? " · " + erp : ""}</button></div>`;
+    <div class="branches">
+      <svg width="60" height="56" viewBox="0 -16 60 56" aria-hidden="true">
+      <path d="M2 9 L17 -6 H54" stroke="#1f8a4c" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M2 9 H54" stroke="#e9a300" stroke-width="5" stroke-linecap="round"/>
+      <path d="M2 9 L17 24 H54" stroke="#2457c5" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <button class="br excel${sel("exported")}" data-st="exported" title="${esc(t("filterHint"))}">${esc(t("brExcel"))}${xl ? " · " + xl : ""}</button>
+      <span class="br dm">${esc(t("brDm"))}</span>
+      <button class="br erp${sel("erp")}" data-st="erp" title="${esc(t("filterHint"))}">${esc(t("brErp"))}${erp ? " · " + erp : ""}</button></div>`;
   if (html !== renderMap.last) { $("#map").innerHTML = html; renderMap.last = html; }
 }
 $("#map").addEventListener("click", (e) => {
@@ -181,7 +187,7 @@ $("#map").addEventListener("click", (e) => {
 function setFilter(st) {
   FILTER = st;
   $("#filterChip").classList.toggle("hidden", !st);
-  $("#filterName").textContent = st ? ({ erp: t("brErp") }[st] || t("st" + st[0].toUpperCase() + st.slice(1))) : "";
+  $("#filterName").textContent = st ? ({ erp: t("brErp"), exported: t("stExported") }[st] || t("st" + st[0].toUpperCase() + st.slice(1))) : "";
   renderMap.last = renderDocs.last = null;
   renderAll();
 }
@@ -212,7 +218,9 @@ function erpTag(d) {
 function renderDocs() {
   const all = STATE.docs || [];
   for (const id of [...selected]) if (!all.some((d) => d.id === id && d.status === "ready")) selected.delete(id);
-  const docs = FILTER === "erp" ? all.filter(erpDone) : FILTER ? all.filter((d) => stationOf(d) === FILTER) : all;
+  const docs = FILTER === "erp" ? all.filter(erpDone)
+    : FILTER === "exported" ? all.filter((d) => d.exported_at)
+    : FILTER ? all.filter((d) => stationOf(d) === FILTER) : all;
   const html = docs.map((d) => {
     const m = docMeta(d);
     const title = d.status === "ready" || d.confirmed ? (d.title || d.name) : d.name;
@@ -399,11 +407,13 @@ $("#btnExport").onclick = async () => {
     if (!path) return;
     const r = await api("/api/export", { method: "POST", body: JSON.stringify({ ids, mode, path }) });
     toast(t("exported", { p: r.path }), 8000, { label: t("openFile"), fn: () => native().open_path(r.path) });
+    refresh();
   } else {
     const res = await fetch("/api/export", { method: "POST", headers: apiHeaders(true), body: JSON.stringify({ ids, mode }) });
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    refresh();
   }
 };
 

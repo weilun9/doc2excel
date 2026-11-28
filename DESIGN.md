@@ -73,7 +73,7 @@ components:
   shell:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.porcelain}"
-    height: "56px"
+    height: "76px"
   inbox-row-open:
     backgroundColor: "{colors.tint}"
   tab-active:
@@ -118,7 +118,7 @@ OCR text stays monospace because it is data. Tabular figures for every number.
 
 ## Layout
 
-Header 56px. Inbox 310px (272px under 1220px). Photo and result split by a
+Header 76px (stations 15px, counts 13px; picker captions sit above their selects). Inbox 310px (272px under 1220px). Photo and result split by a
 draggable, keyboard-resizable divider (default 44%, 20-80%). Under 1480px the
 engine captions beside the pickers hide (a missing-key warning always stays);
 under 1220px the toolbars go icon-only and the next-bill hint hides. Minimum
