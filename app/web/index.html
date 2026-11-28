@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,213 +8,304 @@
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header class="topbar">
-  <div class="brand"><span class="logo">⇄</span> Doc2Excel <small data-i18n="tagline"></small></div>
-  <div class="chips">
-    <label class="mode-pick"><span data-i18n="pickOcr"></span>
-      <select id="selOcr">
-        <option value="auto" data-i18n="ocrOptAuto"></option>
-        <option value="local" data-i18n="ocrOptLocal"></option>
-        <option value="vision" data-i18n="ocrOptVision"></option>
-      </select></label>
-    <label class="mode-pick"><span data-i18n="pickAi"></span>
-      <select id="selAi">
-        <option value="auto" data-i18n="aiOptAuto"></option>
-        <option value="online" data-i18n="aiOptOnline"></option>
-        <option value="offline" data-i18n="aiOptOffline"></option>
-      </select></label>
-    <span class="chip" id="chipOcr"></span>
-    <span class="chip" id="chipAi"></span>
+<svg width="0" height="0" class="sprite" aria-hidden="true"><defs>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9 14h6"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><rect x="3" y="12" width="18" height="7" rx="2"/><path d="M7 12V5h10v7"/><path d="M7 16h4"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-rotl" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-rotr" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-zin" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></symbol>
+  <symbol id="i-zout" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-6.5 18-4-8-8-4z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+  <symbol id="i-open" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+</defs></svg>
+
+<header class="top">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="8.5"/><circle class="dot" cx="11" cy="11" r="3.5"/></svg>
+    Doc2Excel
   </div>
-  <div class="top-actions">
-    <button class="ghost" id="btnLang">EN</button>
-    <button class="ghost" id="btnSettings" data-i18n="settings"></button>
-  </div>
+  <nav id="map" class="map" data-i18n-aria="mapLabel"></nav>
+  <div class="spacer"></div>
+  <label class="picker"><span data-i18n="pickOcr"></span>
+    <span class="select-wrap"><select id="selOcr">
+      <option value="auto" data-i18n="ocrOptAuto"></option>
+      <option value="local" data-i18n="ocrOptLocal"></option>
+      <option value="vision" data-i18n="ocrOptVision"></option>
+    </select><em id="chipOcr"></em></span></label>
+  <label class="picker"><span data-i18n="pickAi"></span>
+    <span class="select-wrap"><select id="selAi">
+      <option value="auto" data-i18n="aiOptAuto"></option>
+      <option value="online" data-i18n="aiOptOnline"></option>
+      <option value="offline" data-i18n="aiOptOffline"></option>
+    </select><em id="chipAi"></em></span></label>
+  <button class="btn ghost on-ink small" id="btnLang">中文</button>
+  <button class="btn ghost on-ink small" id="btnSettings" data-i18n-title="settings"><svg class="i"><use href="#i-sliders"/></svg><span data-i18n="settings"></span></button>
 </header>
+
 <div id="updateBar" class="update-bar hidden" role="status">
+  <svg class="i"><use href="#i-down"/></svg>
   <span id="updateMsg"></span>
-  <button class="small primary" id="btnUpdate" data-i18n="updateBtn"></button>
-  <button class="ghost small" id="updateClose" aria-label="close">✕</button>
+  <button class="btn primary small" id="btnUpdate" data-i18n="updateBtn"></button>
+  <button class="btn ghost small icon" id="updateClose" data-i18n-title="close"><svg class="i"><use href="#i-x"/></svg></button>
 </div>
 
-<main class="layout">
-  <aside class="side">
-    <section class="card">
-      <h3 data-i18n="phoneTitle"></h3>
-      <img id="qr" alt="QR" class="qr">
-      <select id="phoneUrl" class="url-select"></select>
-      <p class="hint" data-i18n="phoneHint"></p>
-      <p class="hint" id="phoneCount"></p>
-    </section>
-    <section class="card">
-      <h3 data-i18n="addTitle"></h3>
-      <button class="primary wide" id="btnFiles" data-i18n="pickFiles"></button>
-      <button class="wide" id="btnScan" data-i18n="scanner"></button>
-      <div class="watch">
-        <div class="label" data-i18n="watchFolder"></div>
-        <div class="path" id="watchPath"></div>
-        <div class="row">
-          <button class="small" id="btnWatchOpen" data-i18n="open"></button>
-          <button class="small" id="btnWatchPick" data-i18n="change"></button>
-        </div>
+<main class="desk">
+  <aside class="inbox">
+    <div class="inbox-head">
+      <label class="check"><input type="checkbox" id="selAll" data-i18n-title="selectAll"></label>
+      <h2 data-i18n="inbox"></h2>
+      <span id="inboxCount" class="muted"></span>
+      <span class="spacer"></span>
+      <button class="chip hidden" id="filterChip"><span id="filterName"></span><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <p id="inboxEmpty" class="inbox-empty" data-i18n="inboxEmpty"></p>
+    <div id="docList" class="doc-list" role="listbox"></div>
+
+    <div id="selBar" class="sel-bar hidden">
+      <div class="sel-line"><b id="selCount"></b>
+        <select id="exportMode" data-i18n-title="exportModeHint">
+          <option value="per_doc" data-i18n="modePerDoc"></option>
+          <option value="combined" data-i18n="modeCombined"></option>
+          <option value="both" data-i18n="modeBoth"></option>
+        </select></div>
+      <div class="sel-actions">
+        <button class="btn small" id="btnExport"><svg class="i"><use href="#i-table"/></svg><span data-i18n="exportShort"></span></button>
+        <button class="btn small" id="btnDm"><svg class="i"><use href="#i-file"/></svg><span data-i18n="dmShort"></span></button>
+        <button class="btn small" id="btnErpAll"><svg class="i"><use href="#i-send"/></svg><span data-i18n="erpShort"></span></button>
       </div>
-      <p class="hint" data-i18n="dropHint"></p>
-    </section>
+    </div>
+
+    <div class="add">
+      <div class="add-actions">
+        <button class="btn small" id="btnFiles"><svg class="i"><use href="#i-file"/></svg><span data-i18n="filesShort"></span></button>
+        <button class="btn small" id="btnPhone" aria-expanded="false" aria-controls="phonePop"><svg class="i"><use href="#i-qr"/></svg><span data-i18n="phoneShort"></span></button>
+        <button class="btn small" id="btnScan"><svg class="i"><use href="#i-scan"/></svg><span data-i18n="scanShort"></span></button>
+      </div>
+      <div class="watch">
+        <svg class="i"><use href="#i-folder"/></svg>
+        <span class="watch-path"><span data-i18n="watching"></span> <span id="watchPath"></span></span>
+        <button class="link" id="btnWatchOpen" data-i18n="open"></button>
+        <button class="link" id="btnWatchPick" data-i18n="change"></button>
+      </div>
+      <button class="link dm-wb" id="btnDmFromWb"><svg class="i"><use href="#i-file"/></svg><span data-i18n="dmFromWb"></span></button>
+    </div>
+
+    <div id="phonePop" class="pop hidden" role="dialog" aria-labelledby="phonePopTitle">
+      <div class="pop-head"><h3 id="phonePopTitle" data-i18n="phoneTitle"></h3>
+        <button class="btn ghost on-ink small icon" id="phonePopClose" data-i18n-title="close"><svg class="i"><use href="#i-x"/></svg></button></div>
+      <img id="qr" alt="QR" class="qr">
+      <span class="select-wrap on-ink"><select id="phoneUrl" class="url-select"></select></span>
+      <p data-i18n="phoneHint"></p>
+      <div class="pop-count hidden" id="phoneCount"></div>
+    </div>
   </aside>
 
-  <section class="content">
-    <div class="toolbar">
-      <label class="check"><input type="checkbox" id="selAll"> <span data-i18n="selectAll"></span></label>
-      <div class="spacer"></div>
-      <select id="exportMode">
-        <option value="per_doc" data-i18n="modePerDoc"></option>
-        <option value="combined" data-i18n="modeCombined"></option>
-        <option value="both" data-i18n="modeBoth"></option>
-      </select>
-      <button id="btnErpAll" data-i18n="erpSendChecked"></button>
-      <button id="btnDmFromWb" data-i18n="dmFromWb"></button>
-      <button id="btnDm" data-i18n="dmExport"></button>
-      <button class="primary" id="btnExport" data-i18n="export"></button>
+  <section class="work">
+    <!-- no documents yet -->
+    <div id="empty" class="empty hidden">
+      <div class="empty-phone">
+        <h3 data-i18n="emptyPhoneTitle"></h3>
+        <img id="qrBig" alt="QR" class="qr">
+        <span class="select-wrap on-ink"><select id="phoneUrlBig" class="url-select"></select></span>
+        <p data-i18n="phoneHint"></p>
+      </div>
+      <div class="empty-ways">
+        <h2 data-i18n="emptyTitle"></h2>
+        <p class="lead" data-i18n="emptyLead"></p>
+        <div class="way"><span class="way-ic"><svg class="i"><use href="#i-file"/></svg></span>
+          <div><b data-i18n="wayFiles"></b><small data-i18n="wayFilesSub"></small></div>
+          <button class="btn primary" id="emptyFiles" data-i18n="pickFiles"></button></div>
+        <div class="way"><span class="way-ic"><svg class="i"><use href="#i-scan"/></svg></span>
+          <div><b data-i18n="wayScan"></b><small data-i18n="wayScanSub"></small></div>
+          <button class="btn" id="emptyScan" data-i18n="scanShort"></button></div>
+        <div class="way"><span class="way-ic"><svg class="i"><use href="#i-folder"/></svg></span>
+          <div><b data-i18n="wayFolder"></b><small id="emptyWatch"></small></div>
+          <button class="btn ghost" id="emptyWatchPick" data-i18n="change"></button></div>
+      </div>
     </div>
-    <div id="docList" class="doc-list"></div>
-    <div id="empty" class="empty">
-      <div class="big">📄 → 📊</div>
-      <p data-i18n="emptyText"></p>
+
+    <!-- documents exist, nothing open -->
+    <div id="idle" class="idle hidden">
+      <svg class="i"><use href="#i-table"/></svg>
+      <p id="idleMsg"></p>
+    </div>
+
+    <!-- review -->
+    <div id="review" class="review hidden">
+      <div class="pane original">
+        <div class="img-wrap" id="imgWrap"><img id="rvImg" alt=""></div>
+        <div class="badge-float hidden" id="rvBadge"><svg class="i"><use href="#i-check"/></svg><span data-i18n="enhancedLong"></span></div>
+        <div class="photo-bar" role="toolbar">
+          <span id="rvPages" class="pages"></span>
+          <button class="tool" id="zoomOut" data-i18n-title="zoomOut"><svg class="i"><use href="#i-zout"/></svg></button>
+          <span id="zoomLevel" class="zoom-level">100%</span>
+          <button class="tool" id="zoomIn" data-i18n-title="zoomIn"><svg class="i"><use href="#i-zin"/></svg></button>
+          <span class="bar-sep"></span>
+          <button class="tool" id="rotLeft" data-i18n-title="rotLeft"><svg class="i"><use href="#i-rotl"/></svg></button>
+          <button class="tool" id="rotRight" data-i18n-title="rotRight"><svg class="i"><use href="#i-rotr"/></svg></button>
+        </div>
+      </div>
+      <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" tabindex="0" data-i18n-title="splitHint"></div>
+      <div class="pane result">
+        <div class="result-head">
+          <div class="tabs" role="tablist">
+            <button class="tab active" data-tab="table" role="tab" data-i18n="tabTable"></button>
+            <button class="tab" data-tab="text" role="tab" data-i18n="tabText"></button>
+          </div>
+          <span class="spacer"></span>
+          <button class="btn ghost small" id="rvCopy" data-i18n-title="copy"><svg class="i"><use href="#i-copy"/></svg><span data-i18n="copy"></span></button>
+          <button class="btn ghost small" id="rvSave" data-i18n-title="saveFile"><svg class="i"><use href="#i-down"/></svg><span data-i18n="saveFile"></span></button>
+          <button class="btn ghost small" id="rvErp" data-i18n-title="erpSend"><svg class="i"><use href="#i-send"/></svg><span data-i18n="erpSend"></span></button>
+        </div>
+        <div class="edit-banner edit-only"><svg class="i"><use href="#i-pen"/></svg><span data-i18n="editBanner"></span></div>
+        <div class="warn-banner hidden" id="rvWarnBox"><svg class="i"><use href="#i-alert"/></svg><span id="rvWarn"></span></div>
+        <div class="tab-body" id="tabTable">
+          <input id="tTitle" class="title-input" readonly>
+          <div id="rvMeta" class="meta"></div>
+          <div class="fields" id="fieldsGrid"></div>
+          <div class="check-line hidden" id="rvCheck"><svg class="i"><use href="#i-check"/></svg><span></span></div>
+          <div class="edit-tools edit-only">
+            <button class="btn small" id="addField"><svg class="i"><use href="#i-plus"/></svg><span data-i18n="addField"></span></button>
+            <button class="btn small" id="addRow"><svg class="i"><use href="#i-plus"/></svg><span data-i18n="addRow"></span></button>
+            <button class="btn small" id="addCol"><svg class="i"><use href="#i-plus"/></svg><span data-i18n="addCol"></span></button>
+          </div>
+          <div class="grid-scroll"><table class="grid items" id="itemsGrid"></table></div>
+        </div>
+        <div class="tab-body hidden" id="tabText">
+          <p class="hint-line"><svg class="i"><use href="#i-copy"/></svg><span data-i18n="textHint"></span></p>
+          <pre id="ocrText"></pre>
+        </div>
+        <div class="action-bar">
+          <button class="btn view-only" id="rvEdit"><svg class="i"><use href="#i-pen"/></svg><span data-i18n="edit"></span></button>
+          <div class="menu-wrap view-only">
+            <button class="btn ghost" id="rvRerun" data-i18n-title="rerun" aria-haspopup="menu" aria-expanded="false"><svg class="i"><use href="#i-redo"/></svg><span data-i18n="rerun"></span><svg class="i sm"><use href="#i-chev"/></svg></button>
+            <div class="menu hidden" id="rerunMenu" role="menu">
+              <button role="menuitem" id="rvRedoAi"><b data-i18n="redoAi"></b><small data-i18n="redoAiSub"></small></button>
+              <button role="menuitem" id="rvRedoOcr"><b data-i18n="redoOcr"></b><small data-i18n="redoOcrSub"></small></button>
+            </div>
+          </div>
+          <button class="btn edit-only" id="rvUndo"><svg class="i"><use href="#i-undo"/></svg><span data-i18n="undo"></span></button>
+          <button class="btn ghost edit-only" id="rvCancel"><svg class="i"><use href="#i-x"/></svg><span data-i18n="cancel"></span></button>
+          <span class="spacer"></span>
+          <div class="next-hint" id="rvNext"></div>
+          <button class="btn primary big" id="rvConfirm"><svg class="i"><use href="#i-check"/></svg><span id="rvConfirmLabel"></span></button>
+        </div>
+      </div>
     </div>
   </section>
 </main>
 
-<!-- review / edit -->
-<div id="review" class="modal hidden">
-  <div class="review">
-    <div class="review-head">
-      <div class="title"><b id="rvName"></b> <span id="rvMeta" class="muted"></span></div>
-      <div class="actions">
-        <button id="rvEdit" data-i18n="edit"></button>
-        <button id="rvUndo" data-i18n="undo"></button>
-        <button id="rvCancel" data-i18n="cancel"></button>
-        <button class="primary" id="rvConfirm" data-i18n="confirm"></button>
-        <span class="sep"></span>
-        <button id="rvRedoAi" data-i18n="redoAi"></button>
-        <button id="rvRedoOcr" data-i18n="redoOcr"></button>
-        <span class="sep"></span>
-        <button id="rvErp" data-i18n="erpSend"></button>
-        <button class="ghost" id="rvClose">✕</button>
-      </div>
-    </div>
-    <div class="review-body">
-      <div class="pane original">
-        <div class="pane-head">
-          <span data-i18n="original"></span>
-          <span id="rvPages" class="pages"></span>
-          <span class="spacer"></span>
-          <button class="small" id="rotLeft" data-i18n-title="rotLeft">↺</button>
-          <button class="small" id="rotRight" data-i18n-title="rotRight">↻</button>
-          <span class="sep"></span>
-          <button class="small" id="zoomOut">−</button>
-          <button class="small" id="zoomIn">+</button>
-        </div>
-        <div class="img-wrap" id="imgWrap"><img id="rvImg" alt=""></div>
-      </div>
-      <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" data-i18n-title="splitHint"></div>
-      <div class="pane result">
-        <div class="pane-head tabs">
-          <button class="tab active" data-tab="table" data-i18n="tabTable"></button>
-          <button class="tab" data-tab="text" data-i18n="tabText"></button>
-          <span class="spacer"></span>
-          <span id="rvWarn" class="warn"></span>
-          <button class="small" id="rvCopy" data-i18n="copy"></button>
-          <button class="small" id="rvSave" data-i18n="saveFile"></button>
-        </div>
-        <div class="tab-body" id="tabTable">
-          <div class="sec-head"><b data-i18n="docTitle"></b></div>
-          <input id="tTitle" class="title-input" disabled>
-          <div class="sec-head"><b data-i18n="fields"></b>
-            <button class="small edit-only" id="addField" data-i18n="addField"></button></div>
-          <table class="grid fields" id="fieldsGrid"></table>
-          <div class="sec-head"><b data-i18n="items"></b>
-            <span class="edit-only">
-              <button class="small" id="addRow" data-i18n="addRow"></button>
-              <button class="small" id="addCol" data-i18n="addCol"></button>
-            </span></div>
-          <div class="grid-scroll"><table class="grid items" id="itemsGrid"></table></div>
-        </div>
-        <div class="tab-body hidden" id="tabText"><pre id="ocrText"></pre></div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- settings -->
 <div id="settings" class="modal hidden">
-  <div class="dialog">
-    <h2 data-i18n="settings"></h2>
-    <p class="hint"><span data-i18n="envNote"></span> <code id="envPath"></code></p>
-    <h4 data-i18n="aiSection"></h4>
-    <label><span>Base URL</span><input name="LLM_BASE_URL"></label>
-    <label><span>Model</span><input name="LLM_MODEL"></label>
-    <label><span>API key</span><input name="LLM_API_KEY" type="password" autocomplete="off"></label>
-    <label><span data-i18n="aiMode"></span>
-      <select name="AI_MODE">
-        <option value="auto" data-i18n="optAuto"></option>
-        <option value="online" data-i18n="optOnline"></option>
-        <option value="offline" data-i18n="optOffline"></option>
-      </select></label>
-    <h4 data-i18n="visionSection"></h4>
-    <label><span>Base URL</span><input name="VISION_BASE_URL" placeholder="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"></label>
-    <label><span>Model</span><input name="VISION_MODEL" placeholder="qwen-vl-max"></label>
-    <label><span>API key</span><input name="VISION_API_KEY" type="password" autocomplete="off"></label>
-    <label><span data-i18n="ocrMode"></span>
-      <select name="OCR_MODE">
-        <option value="auto" data-i18n="optOcrAuto"></option>
-        <option value="local" data-i18n="optOcrLocal"></option>
-        <option value="vision" data-i18n="optOcrVision"></option>
-      </select></label>
-    <label><span data-i18n="photoEnhance"></span>
-      <select name="PHOTO_ENHANCE">
-        <option value="auto" data-i18n="optEnhanceAuto"></option>
-        <option value="off" data-i18n="optEnhanceOff"></option>
-      </select></label>
-    <h4 data-i18n="erpSection"></h4>
-    <p class="hint" data-i18n="erpHelp"></p>
-    <label><span data-i18n="erpUrl"></span><input name="ERP_URL" placeholder="http://localhost:8000" autocomplete="off"></label>
-    <label><span>Token</span><input name="ERP_TOKEN" type="password" autocomplete="off"></label>
-    <div class="erp-test"><button class="small" id="erpTest" data-i18n="erpTest"></button><span id="erpTestResult" class="hint"></span></div>
-    <h4 data-i18n="dmSection"></h4>
-    <p class="hint" data-i18n="dmHelp"></p>
-    <label><span data-i18n="dmWorkbook"></span><input name="DYNAMOD_WORKBOOK" autocomplete="off"><button class="small" id="dmPickWb" type="button" data-i18n="change"></button></label>
-    <label><span data-i18n="dmTemplateDir"></span><input name="DYNAMOD_TEMPLATE_DIR" autocomplete="off"></label>
-    <label><span data-i18n="dmOutDir"></span><input name="DYNAMOD_OUT_DIR" autocomplete="off"><button class="small" id="dmPickOut" type="button" data-i18n="change"></button></label>
-    <label><span>Location ID</span><input name="DYNAMOD_LOCATION" autocomplete="off"></label>
-    <h4 data-i18n="verSection"></h4>
-    <div class="erp-test ver-row"><span><span data-i18n="verCurrent"></span> <b id="verCurrent"></b></span>
-      <button class="small" id="btnCheckUpdate" type="button" data-i18n="checkUpdate"></button>
-      <span id="checkResult" class="hint"></span></div>
-    <p class="hint" id="keyNote" data-i18n="keyNote"></p>
+  <div class="dialog settings" role="dialog" aria-labelledby="setTitle">
+    <nav class="set-nav">
+      <h2 id="setTitle" data-i18n="settings"></h2>
+      <button class="set-item active" data-sec="ai"><i class="st"></i><span><b data-i18n="secAi"></b><small id="secAiState"></small></span></button>
+      <button class="set-item" data-sec="vision"><i class="st"></i><span><b data-i18n="secVision"></b><small id="secVisionState"></small></span></button>
+      <button class="set-item" data-sec="photo"><i class="st"></i><span><b data-i18n="photoEnhance"></b><small id="secPhotoState"></small></span></button>
+      <button class="set-item" data-sec="erp"><i class="st"></i><span><b data-i18n="secErp"></b><small id="secErpState"></small></span></button>
+      <button class="set-item" data-sec="dm"><i class="st"></i><span><b data-i18n="secDm"></b><small id="secDmState"></small></span></button>
+      <button class="set-item" data-sec="ver"><i class="st"></i><span><b data-i18n="verSection"></b><small id="secVerState"></small></span></button>
+      <p class="env"><span data-i18n="envNote"></span> <code id="envPath"></code></p>
+    </nav>
+    <div class="set-body">
+      <section class="set-sec" data-sec="ai">
+        <h3 data-i18n="secAi"></h3>
+        <p class="lead" data-i18n="aiSection"></p>
+        <label class="f"><span>Base URL</span><input name="LLM_BASE_URL" autocomplete="off"></label>
+        <label class="f"><span>Model</span><input name="LLM_MODEL" autocomplete="off"></label>
+        <label class="f"><span>API key</span><input name="LLM_API_KEY" type="password" autocomplete="off"></label>
+        <label class="f"><span data-i18n="aiMode"></span><select name="AI_MODE">
+          <option value="auto" data-i18n="optAuto"></option>
+          <option value="online" data-i18n="optOnline"></option>
+          <option value="offline" data-i18n="optOffline"></option>
+        </select></label>
+        <div class="note"><svg class="i"><use href="#i-lock"/></svg><span id="keyNote" data-i18n="keyNote"></span></div>
+      </section>
+      <section class="set-sec hidden" data-sec="vision">
+        <h3 data-i18n="secVision"></h3>
+        <p class="lead" data-i18n="visionSection"></p>
+        <label class="f"><span>Base URL</span><input name="VISION_BASE_URL" placeholder="https://dashscope-intl.aliyuncs.com/compatible-mode/v1" autocomplete="off"></label>
+        <label class="f"><span>Model</span><input name="VISION_MODEL" placeholder="qwen-vl-max" autocomplete="off"></label>
+        <label class="f"><span>API key</span><input name="VISION_API_KEY" type="password" autocomplete="off"></label>
+        <label class="f"><span data-i18n="ocrMode"></span><select name="OCR_MODE">
+          <option value="auto" data-i18n="optOcrAuto"></option>
+          <option value="local" data-i18n="optOcrLocal"></option>
+          <option value="vision" data-i18n="optOcrVision"></option>
+        </select></label>
+      </section>
+      <section class="set-sec hidden" data-sec="photo">
+        <h3 data-i18n="photoEnhance"></h3>
+        <p class="lead" data-i18n="photoLead"></p>
+        <label class="f"><span data-i18n="photoEnhance"></span><select name="PHOTO_ENHANCE">
+          <option value="auto" data-i18n="optEnhanceAuto"></option>
+          <option value="off" data-i18n="optEnhanceOff"></option>
+        </select></label>
+      </section>
+      <section class="set-sec hidden" data-sec="erp">
+        <h3 data-i18n="secErp"></h3>
+        <p class="lead" data-i18n="erpHelp"></p>
+        <label class="f"><span data-i18n="erpUrl"></span><input name="ERP_URL" placeholder="http://localhost:8000" autocomplete="off"></label>
+        <label class="f"><span>Token</span><input name="ERP_TOKEN" type="password" autocomplete="off"></label>
+        <div class="f-row"><button class="btn small" id="erpTest" type="button" data-i18n="erpTest"></button><span id="erpTestResult" class="hint"></span></div>
+      </section>
+      <section class="set-sec hidden" data-sec="dm">
+        <h3 data-i18n="secDm"></h3>
+        <p class="lead" data-i18n="dmHelp"></p>
+        <label class="f"><span data-i18n="dmWorkbook"></span><span class="f-pick"><input name="DYNAMOD_WORKBOOK" autocomplete="off"><button class="btn small" id="dmPickWb" type="button" data-i18n="change"></button></span></label>
+        <label class="f"><span data-i18n="dmTemplateDir"></span><input name="DYNAMOD_TEMPLATE_DIR" autocomplete="off"></label>
+        <label class="f"><span data-i18n="dmOutDir"></span><span class="f-pick"><input name="DYNAMOD_OUT_DIR" autocomplete="off"><button class="btn small" id="dmPickOut" type="button" data-i18n="change"></button></span></label>
+        <label class="f"><span>Location ID</span><input name="DYNAMOD_LOCATION" autocomplete="off"></label>
+      </section>
+      <section class="set-sec hidden" data-sec="ver">
+        <h3 data-i18n="verSection"></h3>
+        <p class="lead"><span data-i18n="verCurrent"></span> <b id="verCurrent"></b></p>
+        <div class="f-row"><button class="btn small" id="btnCheckUpdate" type="button" data-i18n="checkUpdate"></button><span id="checkResult" class="hint"></span></div>
+      </section>
+    </div>
     <div class="dialog-actions">
-      <button id="setCancel" data-i18n="cancel"></button>
-      <button class="primary" id="setSave" data-i18n="save"></button>
+      <span class="hint" data-i18n="settingsFoot"></span>
+      <span class="spacer"></span>
+      <button class="btn" id="setCancel" data-i18n="cancel"></button>
+      <button class="btn primary" id="setSave" data-i18n="save"></button>
     </div>
   </div>
 </div>
 
 <!-- DynaMod results -->
 <div id="dmResult" class="modal hidden">
-  <div class="dialog">
-    <h2 data-i18n="dmResultTitle"></h2>
+  <div class="dialog simple" role="dialog" aria-labelledby="dmTitle">
+    <h2 id="dmTitle" data-i18n="dmResultTitle"></h2>
     <p class="hint" id="dmNotes"></p>
-    <table class="grid dm-table" id="dmTable"></table>
-    <p class="hint" data-i18n="dmImportTip"></p>
+    <table class="dm-table" id="dmTable"></table>
+    <p class="note"><svg class="i"><use href="#i-alert"/></svg><span data-i18n="dmImportTip"></span></p>
     <div class="dialog-actions">
-      <button id="dmOpenWb" data-i18n="dmOpenWb"></button>
-      <button id="dmOpenDir" data-i18n="dmOpenDir"></button>
-      <button class="primary" id="dmClose" data-i18n="close"></button>
+      <span class="spacer"></span>
+      <button class="btn" id="dmOpenWb" data-i18n="dmOpenWb"></button>
+      <button class="btn" id="dmOpenDir" data-i18n="dmOpenDir"></button>
+      <button class="btn primary" id="dmClose" data-i18n="close"></button>
     </div>
   </div>
 </div>
 
-<div id="drop" class="drop hidden"><div data-i18n="dropNow"></div></div>
-<div id="toast" class="toast hidden"></div>
+<div id="drop" class="drop hidden"><div><svg class="i"><use href="#i-file"/></svg><span data-i18n="dropNow"></span></div></div>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>

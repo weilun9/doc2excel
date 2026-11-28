@@ -3,8 +3,9 @@
 A Windows desktop app that turns scanned or photographed paper documents
 (invoices, receipts, statements, forms) into Excel workbooks.
 
-- **Upload from a phone:** the app shows a QR code. Scan it with a phone on the
-  same Wi-Fi to open an upload page, then take photos or pick images/PDFs.
+- **Upload from a phone:** press **Phone** (or look at the start screen) for a
+  QR code. Scan it with a phone on the same Wi-Fi to open an upload page, then
+  take photos or pick images/PDFs. A failed upload can be retried on the phone.
 - **Other inputs:** drop files onto the window, choose files, scan from a
   WIA desktop scanner, or save files into the watched folder.
 - **OCR on the PC:** local RapidOCR (PaddleOCR models on ONNX Runtime) works
@@ -17,9 +18,13 @@ A Windows desktop app that turns scanned or photographed paper documents
   When the API is unreachable or no key is set, the app switches to offline
   layout rules automatically: columns are anchored on the table's header row,
   so blank cells stay blank and wrapped descriptions stay in one row.
-- **Review, then export:** compare with the original side by side; use Edit,
-  Undo, Cancel and Confirm to correct the table; export a formatted `.xlsx`
-  (one sheet per document, a combined sheet + summary, or both).
+- **Review, then export:** the line across the top shows how many documents
+  are at each step (Read, Build, Review, Confirmed; click one to filter the
+  inbox). The next bill to review opens beside its photo; correct it with Edit,
+  Undo and Cancel, then **Confirm & next** (Ctrl+Enter) opens the following one.
+  A check line says whether the line totals add up to the bill's total. Tick
+  documents to export a formatted `.xlsx` (one sheet per document, a combined
+  sheet + summary, or both), make DynaMod files or send them to the ERP.
 
 The app runs only while its window is open. Closing it stops the local server,
 the folder watcher and all processing. Nothing autostarts.

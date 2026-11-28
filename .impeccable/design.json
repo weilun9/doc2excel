@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-28T17:00:00+08:00",
+  "title": "Design System: Doc2Excel",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "primary", "displayName": "Midnight enamel" },
+      "porcelain": { "role": "neutral", "displayName": "Porcelain" },
+      "scarlet": { "role": "accent", "displayName": "Review line scarlet" },
+      "cobalt": { "role": "secondary", "displayName": "ERP cobalt" },
+      "amber": { "role": "tertiary", "displayName": "DynaMod amber" },
+      "green": { "role": "success", "displayName": "Excel green" }
+    },
+    "typographyMeta": {
+      "review-data": { "displayName": "Review data", "purpose": "Recognised fields and line items, 1.5x the base size." },
+      "ocr-text": { "displayName": "OCR text", "purpose": "Raw recognised text; monospace because it is data." }
+    },
+    "shadows": [
+      { "name": "pop", "value": "0 18px 40px -10px rgba(15,29,58,.45), 0 2px 6px rgba(15,29,58,.18)", "purpose": "Popovers, menus, photo toolbar." },
+      { "name": "dialog", "value": "0 30px 70px -20px rgba(15,29,58,.55), 0 4px 12px rgba(15,29,58,.18)", "purpose": "Modal dialogs." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "Entering popovers, menus and dialogs (160-240ms); press feedback 140ms scale(0.97)." },
+      { "name": "toast", "value": "400ms ease", "purpose": "Toast enter from below." }
+    ],
+    "breakpoints": [
+      { "name": "compact", "value": "1220px" },
+      { "name": "captions", "value": "1480px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action per view, e.g. Confirm & next.",
+      "html": "<button class=\"ds-btn-primary\">Confirm &amp; next</button>",
+      "css": ".ds-btn-primary{background:#d7372f;color:#fff;border:1px solid #d7372f;border-radius:8px;padding:11px 20px;font-weight:600;font-size:15px;cursor:pointer;transition:transform 140ms cubic-bezier(.23,1,.32,1),background-color 140ms ease}.ds-btn-primary:hover{background:#b92c25}.ds-btn-primary:active{transform:scale(.97)}.ds-btn-primary:focus-visible{outline:2px solid #2457c5;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Everything that is not the primary action.",
+      "html": "<button class=\"ds-btn\">Edit</button>",
+      "css": ".ds-btn{background:#fff;color:#14203b;border:1px solid #d6d1c2;border-radius:8px;padding:8px 14px;font-weight:600;font-size:14px;cursor:pointer}.ds-btn:hover{background:#f4f2ec;border-color:#c9c2ae}.ds-btn:active{transform:scale(.97)}.ds-btn:focus-visible{outline:2px solid #2457c5;outline-offset:2px}"
+    },
+    {
+      "name": "Line map station",
+      "kind": "nav",
+      "description": "A station on the header line; current station is a double ring with a scarlet count.",
+      "html": "<div class=\"ds-map\"><span class=\"ds-st\"><i></i>Read <b>1</b></span><span class=\"ds-st hot\"><i></i>Review <b>2</b></span></div>",
+      "css": ".ds-map{display:flex;gap:28px;background:#0f1d3a;color:#f7f5ef;padding:12px 16px;position:relative}.ds-st{display:flex;flex-direction:column;gap:5px;font-size:12.5px}.ds-st i{width:14px;height:14px;border-radius:50%;background:#f7f5ef;border:3px solid #d7372f;box-sizing:border-box}.ds-st b{background:rgba(247,245,239,.16);border-radius:9px;padding:0 6px;margin-left:4px}.ds-st.hot i{background:#0f1d3a;border-color:#f7f5ef;box-shadow:inset 0 0 0 3px #d7372f}.ds-st.hot b{background:#d7372f;color:#fff}"
+    },
+    {
+      "name": "Tabs",
+      "kind": "chip",
+      "refersTo": "tab-active",
+      "description": "Segmented Table / OCR text switch.",
+      "html": "<div class=\"ds-tabs\"><button class=\"on\">Table</button><button>OCR text</button></div>",
+      "css": ".ds-tabs{display:inline-flex;background:#f7f5ef;border-radius:8px;padding:3px}.ds-tabs button{border:0;background:none;padding:6px 14px;border-radius:6px;font-weight:600;color:#5b6478}.ds-tabs .on{background:#0f1d3a;color:#f7f5ef}"
+    },
+    {
+      "name": "Settings field",
+      "kind": "input",
+      "description": "Labelled input in the settings dialog.",
+      "html": "<label class=\"ds-f\"><span>Model</span><input value=\"deepseek-chat\"></label>",
+      "css": ".ds-f{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}.ds-f span{font-weight:600;font-size:13.5px}.ds-f input{height:40px;border:1px solid #d6d1c2;border-radius:8px;padding:0 12px;font-size:14.5px}.ds-f input:focus{outline:none;border-color:#2457c5;box-shadow:0 0 0 3px rgba(36,87,197,.18)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Midnight Transit",
+    "overview": "The batch of bills is a rail line; each bill rides Read, Build, Review, Confirmed and branches to Excel, DynaMod or ERP. Work areas stay plain porcelain so the photo and the numbers lead.",
+    "keyCharacteristics": ["Slim midnight header drawn as the processing line", "Three work areas: inbox, photo, table", "Confirm & next as the one primary action", "Status by shape and colour"],
+    "rules": [
+      { "name": "One scarlet", "body": "Scarlet marks the review line and the single primary action in a view.", "section": "colors" },
+      { "name": "1.5x data", "body": "Recognised content on the review screen is set at 1.5x the base size.", "section": "typography" }
+    ],
+    "dos": ["Do keep controls ordinary web controls", "Do honour prefers-reduced-motion"],
+    "donts": ["Don't load fonts or scripts from the network", "Don't animate polling or keyboard actions"]
+  }
+}

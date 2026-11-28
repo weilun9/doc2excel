@@ -3,6 +3,7 @@ upload page (LAN, guarded by a random token that changes every launch)."""
 from __future__ import annotations
 
 import io
+import mimetypes
 import secrets
 import tempfile
 import threading
@@ -16,6 +17,8 @@ from werkzeug.utils import secure_filename
 
 from . import config, dynamod, erp, llm, ocr, sources, structure, exporter, updater
 from .version import VERSION
+
+mimetypes.add_type("font/woff2", ".woff2")   # Windows' registry often lacks it
 
 LOCAL_ADDRS = {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 
@@ -430,6 +433,14 @@ class AppServer:
         def mobile(token):
             check_token(token)
             return send_from_directory(web, "mobile.html")
+
+        @app.get("/m/<token>/font/<name>")
+        def mobile_font(token, name):
+            # The phone cannot reach /static (this PC only); give it just the UI font.
+            check_token(token)
+            if not name.endswith(".woff2"):
+                abort(404)
+            return send_from_directory(web / "fonts", name)
 
         @app.post("/m/<token>/upload")
         def mobile_upload(token):

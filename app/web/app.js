@@ -1,9 +1,12 @@
 "use strict";
 const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const ico = (id, cls = "") => `<svg class="i ${cls}"><use href="#i-${id}"/></svg>`;
 
 let LANG = localStorage.getItem("lang") || null;
 let STATE = { docs: [] };
+let FILTER = "";              // station filter for the inbox ("" = all)
 const selected = new Set();
 const native = () => (window.pywebview && window.pywebview.api) || null;
 
@@ -15,11 +18,13 @@ function t(key, vars) {
 
 function applyLang() {
   document.documentElement.lang = LANG;
-  document.querySelectorAll("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
-  document.querySelectorAll("[data-i18n-title]").forEach((el) => (el.title = t(el.dataset.i18nTitle)));
+  $$("[data-i18n]").forEach((el) => (el.textContent = t(el.dataset.i18n)));
+  $$("[data-i18n-title]").forEach((el) => (el.title = t(el.dataset.i18nTitle)));
+  $$("[data-i18n-aria]").forEach((el) => el.setAttribute("aria-label", t(el.dataset.i18nAria)));
   $("#btnLang").textContent = LANG === "zh" ? "EN" : "中文";
   renderChips();
-  renderDocs();
+  renderMap.last = renderDocs.last = null;
+  renderAll();
   if (RV.doc) renderReview();
 }
 
@@ -28,7 +33,7 @@ function toast(msg, ms = 3500, action) {
   el.innerHTML = esc(msg);
   if (action) {
     const b = document.createElement("button");
-    b.className = "small";
+    b.className = "btn small";
     b.textContent = action.label;
     b.onclick = action.fn;
     el.appendChild(b);
@@ -58,6 +63,19 @@ async function api(path, opts = {}) {
   return data;
 }
 
+// ---------------- stations ----------------
+// Where a document is on the line. Read = waiting or OCR, Build = AI table.
+function stationOf(d) {
+  if (d.status === "queued" || d.status === "ocr") return "read";
+  if (d.status === "ai") return "build";
+  if (d.status === "error") return "errors";
+  if (d.confirmed) return "confirmed";
+  return "review";
+}
+const erpDone = (d) => d.erp_state === "sent" || d.erp_state === "already";
+const isBusy = (d) => ["queued", "ocr", "ai"].includes(d.status);
+const toReview = () => (STATE.docs || []).filter((d) => d.status === "ready" && !d.confirmed);
+
 // ---------------- state polling ----------------
 let qrUrl = "";
 async function refresh() {
@@ -67,26 +85,47 @@ async function refresh() {
     return;
   }
   if (!LANG) { LANG = STATE.ui_lang || "zh"; applyLang(); }
-  const sel = $("#phoneUrl");
   const urls = STATE.phone_urls || [];
-  if (sel.options.length !== urls.length || [...sel.options].some((o, i) => o.value !== urls[i])) {
-    const cur = sel.value;
-    sel.innerHTML = urls.map((u) => `<option value="${esc(u)}">${esc(u.replace(/^http:\/\//, "").replace(/\/m\/.*/, ""))}</option>`).join("");
-    if (urls.includes(cur)) sel.value = cur;
+  for (const sel of [$("#phoneUrl"), $("#phoneUrlBig")]) {
+    if (sel.options.length !== urls.length || [...sel.options].some((o, i) => o.value !== urls[i])) {
+      const cur = sel.value || qrUrl;
+      sel.innerHTML = urls.map((u) => `<option value="${esc(u)}">${esc(u.replace(/^http:\/\//, "").replace(/\/m\/.*/, ""))}</option>`).join("");
+      if (urls.includes(cur)) sel.value = cur;
+    }
   }
-  if (sel.value && sel.value !== qrUrl) {
-    qrUrl = sel.value;
-    $("#qr").src = keyed("/api/qr.png?u=" + encodeURIComponent(qrUrl));
-    $("#qr").title = qrUrl;
+  const want = urls.includes(qrUrl) ? qrUrl : (urls[0] || "");
+  if (want && want !== $("#qr").dataset.u) {
+    qrUrl = want;
+    for (const img of [$("#qr"), $("#qrBig")]) {
+      img.src = keyed("/api/qr.png?u=" + encodeURIComponent(qrUrl));
+      img.title = qrUrl;
+      img.dataset.u = qrUrl;
+    }
+    $("#phoneUrl").value = $("#phoneUrlBig").value = qrUrl;
   }
-  $("#phoneCount").textContent = STATE.phone_uploads ? t("phoneCount", { n: STATE.phone_uploads }) : "";
-  $("#watchPath").textContent = STATE.watch_dir || "—";
+  const pc = $("#phoneCount");
+  pc.textContent = STATE.phone_uploads ? t("phoneCount", { n: STATE.phone_uploads }) : "";
+  pc.classList.toggle("hidden", !STATE.phone_uploads);
+  $("#watchPath").textContent = $("#emptyWatch").textContent = STATE.watch_dir || "—";
   renderChips();
-  renderDocs();
   if (RV.doc) {
     const s = STATE.docs.find((d) => d.id === RV.doc.id);
-    if (s && s.status !== RV.doc.status && !RV.editing) openReview(RV.doc.id, true);
+    if (!s) { RV.doc = null; }
+    else if ((s.status !== RV.doc.status || s.img_ver !== RV.doc.img_ver) && !RV.editing) {
+      await openReview(RV.doc.id, true);
+    }
   }
+  if (!RV.doc && !RV.loading) {
+    const next = toReview()[0];
+    if (next) await openReview(next.id);
+  }
+  renderAll();
+}
+
+function renderAll() {
+  renderMap();
+  renderDocs();
+  renderWork();
 }
 
 function renderModePickers() {
@@ -104,54 +143,105 @@ async function saveMode(key, value) {
 $("#selOcr").onchange = (e) => saveMode("OCR_MODE", e.target.value);
 $("#selAi").onchange = (e) => saveMode("AI_MODE", e.target.value);
 
+// The small text beside each picker says what is actually in use right now.
 function renderChips() {
   if (!STATE.ai_mode) return;
   renderModePickers();
   const ai = $("#chipAi");
-  if (!STATE.llm_ready) { ai.textContent = t("aiNoKey"); ai.className = "chip off"; }
-  else if (STATE.ai_mode === "online") { ai.textContent = t("aiOnline", { m: STATE.llm_model || "LLM" }); ai.className = "chip on"; }
-  else { ai.textContent = t("aiOffline"); ai.className = "chip off"; }
-  const ocr = $("#chipOcr");
-  ocr.textContent = STATE.ocr_engine === "vision" ? t("ocrVision") : t("ocrLocal");
-  ocr.className = "chip " + (STATE.ocr_engine === "vision" ? "on" : "");
+  if (!STATE.llm_ready) { ai.textContent = t("engNoKey"); ai.className = "off"; }
+  else if (STATE.ai_mode === "online") { ai.textContent = STATE.llm_model || "LLM"; ai.className = ""; }
+  else { ai.textContent = t("engRules"); ai.className = ""; }
+  $("#chipOcr").textContent = STATE.ocr_engine === "vision" ? t("engVision") : t("engLocal");
 }
 
-const SRC_ICON = { phone: "📱", local: "💻", folder: "📁", scanner: "🖨️" };
-function renderDocs() {
-  const list = $("#docList");
+// ---------------- the line map ----------------
+function renderMap() {
   const docs = STATE.docs || [];
-  $("#empty").style.display = docs.length ? "none" : "";
-  for (const id of [...selected]) if (!docs.some((d) => d.id === id)) selected.delete(id);
+  const n = (st) => docs.filter((d) => stationOf(d) === st).length;
+  const stations = [["", t("stInbox"), docs.length], ["read", t("stRead"), n("read")], ["build", t("stBuild"), n("build")],
+    ["review", t("stReview"), n("review")], ["confirmed", t("stConfirmed"), n("confirmed")]];
+  if (n("errors")) stations.splice(4, 0, ["errors", t("stErrors"), n("errors")]);
+  const hot = n("review") ? "review" : null;
+  const erp = docs.filter(erpDone).length;
+  const html = `<div class="stations">${stations.map(([k, label, c]) =>
+    `<button class="station${k === hot ? " hot" : ""}${k === "errors" ? " err" : ""}${FILTER === k && k ? " sel" : ""}" data-st="${k}" title="${esc(t("filterHint"))}">
+      <span class="ring"></span><span class="lab">${esc(label)} <span class="n">${c}</span></span></button>`).join("")}</div>
+    <div class="branches" aria-hidden="true">
+      <svg width="54" height="44" viewBox="0 0 54 44"><path d="M2 10 L14 -2 H48" stroke="#1f8a4c" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+      <path d="M2 10 H48" stroke="#e9a300" stroke-width="4" stroke-linecap="round"/><path d="M2 10 L14 22 H48" stroke="#2457c5" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span class="br excel">${esc(t("brExcel"))}</span><span class="br dm">${esc(t("brDm"))}</span>
+      <button class="br erp" data-st="erp">${esc(t("brErp"))}${erp ? " · " + erp : ""}</button></div>`;
+  if (html !== renderMap.last) { $("#map").innerHTML = html; renderMap.last = html; }
+}
+$("#map").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-st]");
+  if (!b) return;
+  setFilter(FILTER === b.dataset.st ? "" : b.dataset.st);
+});
+function setFilter(st) {
+  FILTER = st;
+  $("#filterChip").classList.toggle("hidden", !st);
+  $("#filterName").textContent = st ? ({ erp: t("brErp") }[st] || t("st" + st[0].toUpperCase() + st.slice(1))) : "";
+  renderMap.last = renderDocs.last = null;
+  renderAll();
+}
+$("#filterChip").onclick = () => setFilter("");
+
+// ---------------- inbox ----------------
+const SRC = (s) => t("src_" + s);
+function docMarker(d) {
+  if (isBusy(d)) return "busy";
+  if (d.status === "error") return "err";
+  if (d.confirmed && erpDone(d)) return "erp";
+  if (d.confirmed) return "ok";
+  return "";
+}
+function docMeta(d) {
+  if (isBusy(d)) return { cls: "", text: t("st_" + d.status) + (d.progress ? " · " + d.progress : "") };
+  if (d.status === "error") return { cls: "err", text: d.error || t("st_error") };
+  const parts = [d.ref, t("rows", { n: d.n_rows }), SRC(d.source), d.enhanced && d.enhanced.length ? t("enhancedTag") : ""];
+  if (d.confirmed) parts.splice(1, 0, t("confirmed"));
+  return { cls: d.warning ? "warn" : "", text: parts.filter(Boolean).join(" · ") };
+}
+function erpTag(d) {
+  if (!d.erp_state || d.erp_state === "sent" || d.erp_state === "already") {
+    return d.erp_state ? `<span class="erp-tag" title="${esc(d.erp_message || "")}">${esc(t("erp_" + d.erp_state))}</span>` : "";
+  }
+  return `<span class="erp-tag ${d.erp_state === "failed" ? "failed" : ""}" title="${esc(d.erp_message || "")}">${esc(t("erp_" + d.erp_state))}</span>`;
+}
+function renderDocs() {
+  const all = STATE.docs || [];
+  for (const id of [...selected]) if (!all.some((d) => d.id === id && d.status === "ready")) selected.delete(id);
+  const docs = FILTER === "erp" ? all.filter(erpDone) : FILTER ? all.filter((d) => stationOf(d) === FILTER) : all;
   const html = docs.map((d) => {
-    const busy = ["queued", "ocr", "ai"].includes(d.status);
-    const status = d.confirmed ? `<span class="badge ok">✓ ${t("confirmed")}</span>`
-      : `<span class="badge ${d.status}">${busy ? '<i class="spin"></i>' : ""}${t("st_" + d.status)}${d.progress ? " " + esc(d.progress) : ""}</span>`;
-    const meta = [
-      `${SRC_ICON[d.source] || ""} ${t("src_" + d.source)}`,
-      d.enhanced && d.enhanced.length ? t("enhancedTag") : "",
-      d.engine ? t("eng_" + d.engine) : "",
-      d.mode ? t("mode_" + d.mode) : "",
-      d.status === "ready" || d.confirmed ? t("rows", { n: d.n_rows }) : "",
-    ].filter(Boolean).join(" · ");
-    return `<div class="doc ${d.confirmed ? "is-ok" : ""}" data-id="${d.id}">
-      <input type="checkbox" class="sel" ${selected.has(d.id) ? "checked" : ""} ${d.status !== "ready" ? "disabled" : ""}>
-      <div class="doc-main" data-act="view">
-        <div class="doc-title">${esc(d.title || d.name)}</div>
-        <div class="doc-meta">${esc(d.name)} · ${esc(meta)}</div>
-        ${d.error ? `<div class="doc-err">${esc(d.error)}</div>` : ""}
-        ${d.warning ? `<div class="doc-warn">${esc(d.warning)}</div>` : ""}
-      </div>
-      ${status}
-      <button class="small" data-act="view" ${d.status === "ready" || d.status === "error" ? "" : "disabled"}>${t("view")}</button>
-      ${erpChip(d)}
-      <button class="small" data-act="erp" ${STATE.erp_ready ? "" : "disabled"} title="${esc(STATE.erp_ready ? "" : t("erpNotSet"))}">${t("erpSend")}</button>
-      <button class="small ghost" data-act="del">${t("del")}</button>
+    const m = docMeta(d);
+    const title = d.status === "ready" || d.confirmed ? (d.title || d.name) : d.name;
+    return `<div class="doc${RV.doc && RV.doc.id === d.id ? " open" : ""}" data-id="${d.id}" role="option" aria-selected="${RV.doc && RV.doc.id === d.id}">
+      <input type="checkbox" class="sel" ${selected.has(d.id) ? "checked" : ""} ${d.status !== "ready" ? "disabled" : ""} aria-label="${esc(t("selectOne"))}">
+      <i class="mk ${docMarker(d)}"></i>
+      <div class="doc-main"><div class="doc-title">${esc(title)}</div><div class="doc-meta ${m.cls}">${esc(m.text)}</div></div>
+      <div class="doc-side">${d.total ? `<span class="amt">${esc(d.total)}</span>` : ""}${erpTag(d)}</div>
+      <button class="del" data-act="del" title="${esc(t("del"))}">${ico("trash")}</button>
     </div>`;
   }).join("");
   // Only touch the DOM when something changed, so polling never eats a click.
-  if (html !== renderDocs.last) { list.innerHTML = html; renderDocs.last = html; }
-  const ready = docs.filter((d) => d.status === "ready");
+  if (html !== renderDocs.last) { $("#docList").innerHTML = html; renderDocs.last = html; }
+  const ready = all.filter((d) => d.status === "ready");
   $("#selAll").checked = ready.length > 0 && ready.every((d) => selected.has(d.id));
+  $("#selAll").disabled = !ready.length;
+  $("#inboxCount").textContent = all.length ? t("docsCount", { n: all.length }) : "";
+  const emptyMsg = $("#inboxEmpty");
+  emptyMsg.classList.toggle("hidden", docs.length > 0);
+  emptyMsg.textContent = all.length ? t("inboxEmptyFilter") : t("inboxEmpty");
+  renderSelBar();
+}
+function renderSelBar() {
+  const n = selected.size;
+  $("#selBar").classList.toggle("hidden", !n);
+  $("#selCount").textContent = t("selCount", { n });
+  $("#btnErpAll").disabled = !STATE.erp_ready;
+  $("#btnErpAll").title = STATE.erp_ready ? "" : t("erpNotSet");
+  $("#btnDm").disabled = !native();
 }
 
 $("#docList").addEventListener("click", async (e) => {
@@ -160,26 +250,45 @@ $("#docList").addEventListener("click", async (e) => {
   const id = row.dataset.id;
   if (e.target.classList.contains("sel")) {
     e.target.checked ? selected.add(id) : selected.delete(id);
+    renderSelBar();
     return;
   }
-  const act = e.target.closest("[data-act]")?.dataset.act;
-  if (act === "view") {
-    const d = STATE.docs.find((x) => x.id === id);
-    if (d && (d.status === "ready" || d.status === "error")) openReview(id);
-  } else if (act === "erp") {
-    await sendToErp([id]);
-  } else if (act === "del") {
+  if (e.target.closest("[data-act=del]")) {
     if (!confirm(t("deleteAsk"))) return;
     await api(`/api/doc/${id}`, { method: "DELETE" });
     selected.delete(id);
+    if (RV.doc && RV.doc.id === id) { RV.doc = null; RV.editing = false; }
     refresh();
+    return;
   }
+  const d = STATE.docs.find((x) => x.id === id);
+  if (!d) return;
+  if (d.status === "ready" || d.status === "error") {
+    if (RV.editing && RV.undo.length && !confirm(t("unsaved"))) return;
+    await openReview(id);
+    renderAll();
+  } else toast(t("stillReading"));
 });
 
 $("#selAll").addEventListener("change", (e) => {
   for (const d of STATE.docs) if (d.status === "ready") e.target.checked ? selected.add(d.id) : selected.delete(d.id);
+  renderDocs.last = null;
   renderDocs();
 });
+
+// ---------------- work area: empty / idle / review ----------------
+function renderWork() {
+  const docs = STATE.docs || [];
+  const view = !docs.length ? "empty" : RV.doc ? "review" : "idle";
+  $("#empty").classList.toggle("hidden", view !== "empty");
+  $("#idle").classList.toggle("hidden", view !== "idle");
+  $("#review").classList.toggle("hidden", view !== "review");
+  if (view === "idle") {
+    const busy = docs.filter(isBusy).length;
+    $("#idleMsg").textContent = busy ? t("idleBusy", { n: busy }) : t("idleDone");
+  }
+  if (view === "review") renderNext();
+}
 
 // ---------------- adding files ----------------
 async function uploadFiles(files) {
@@ -207,6 +316,7 @@ $("#btnFiles").onclick = async () => {
     inp.click();
   }
 };
+$("#emptyFiles").onclick = () => $("#btnFiles").click();
 
 $("#btnScan").onclick = async () => {
   try {
@@ -216,12 +326,30 @@ $("#btnScan").onclick = async () => {
     toast(t("scanErr", { e: e.data?.error || e.message }), 6000);
   }
 };
+$("#emptyScan").onclick = () => $("#btnScan").click();
 
 $("#btnWatchOpen").onclick = () => native()?.open_path(STATE.watch_dir);
 $("#btnWatchPick").onclick = async () => {
   const p = await native()?.pick_folder();
   if (p) { await api("/api/settings", { method: "POST", body: JSON.stringify({ WATCH_DIR: p }) }); refresh(); }
 };
+$("#emptyWatchPick").onclick = () => $("#btnWatchPick").click();
+
+// Phone QR popover: grows from the Phone button; Esc or a click outside closes it.
+function setPhonePop(open) {
+  $("#phonePop").classList.toggle("hidden", !open);
+  $("#btnPhone").classList.toggle("on", open);
+  $("#btnPhone").setAttribute("aria-expanded", open);
+}
+$("#btnPhone").onclick = (e) => { e.stopPropagation(); setPhonePop($("#phonePop").classList.contains("hidden")); };
+$("#phonePopClose").onclick = () => setPhonePop(false);
+document.addEventListener("click", (e) => {
+  if (!$("#phonePop").classList.contains("hidden") && !e.target.closest("#phonePop, #btnPhone")) setPhonePop(false);
+  if (!$("#rerunMenu").classList.contains("hidden") && !e.target.closest("#rerunMenu, #rvRerun")) setRerun(false);
+});
+for (const sel of [$("#phoneUrl"), $("#phoneUrlBig")]) {
+  sel.onchange = () => { qrUrl = sel.value; $("#qr").dataset.u = ""; refresh(); };
+}
 
 let dragDepth = 0;
 window.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; $("#drop").classList.remove("hidden"); });
@@ -258,11 +386,10 @@ document.addEventListener("paste", (e) => {
   uploadFiles(files);
 });
 
-$("#phoneUrl").onchange = refresh;
-
 // ---------------- export ----------------
+const selectedReady = () => STATE.docs.filter((d) => selected.has(d.id) && d.status === "ready").map((d) => d.id);
 $("#btnExport").onclick = async () => {
-  const ids = STATE.docs.filter((d) => selected.has(d.id) && d.status === "ready").map((d) => d.id);
+  const ids = selectedReady();
   if (!ids.length) return toast(t("noneSelected"));
   const mode = $("#exportMode").value;
   const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
@@ -310,7 +437,7 @@ function dmError(e) {
 }
 
 $("#btnDm").onclick = async () => {
-  const ids = STATE.docs.filter((d) => selected.has(d.id) && d.status === "ready").map((d) => d.id);
+  const ids = selectedReady();
   if (!ids.length) return toast(t("noneSelected"));
   if (!native()) return;
   const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
@@ -322,7 +449,7 @@ $("#btnDm").onclick = async () => {
 };
 
 $("#btnDmFromWb").onclick = async () => {
-  if (!native()) return;
+  if (!native()) return toast(t("needDesktop"));
   const path = await native().open_xlsx();
   if (!path) return;
   try {
@@ -343,57 +470,129 @@ $("#dmPickOut").onclick = async () => {
 };
 
 // ---------------- review / edit ----------------
-const RV = { doc: null, draft: null, undo: [], editing: false, page: 0, zoom: 1 };
+const RV = { doc: null, draft: null, undo: [], editing: false, page: 0, zoom: 1, loading: false };
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 async function openReview(id, keepPage) {
-  const doc = await api(`/api/doc/${id}`);
-  RV.doc = doc;
-  RV.draft = clone(doc.table || { title: "", fields: [], columns: ["Text"], rows: [] });
-  RV.undo = [];
-  RV.editing = false;
-  if (!keepPage) { RV.page = 0; RV.zoom = 1; }
-  $("#review").classList.remove("hidden");
-  renderReview();
+  RV.loading = true;
+  try {
+    const doc = await api(`/api/doc/${id}`);
+    const sameDoc = RV.doc && RV.doc.id === id;
+    RV.doc = doc;
+    RV.draft = clone(doc.table || { title: "", fields: [], columns: ["Text"], rows: [] });
+    RV.undo = [];
+    RV.editing = false;
+    if (!keepPage || !sameDoc) { RV.page = 0; RV.zoom = 1; }
+    renderReview();
+  } finally {
+    RV.loading = false;
+  }
 }
 
 function renderReview() {
   const d = RV.doc;
-  $("#rvName").textContent = d.table?.title || d.name;
-  $("#rvMeta").textContent = [d.name, d.enhanced && d.enhanced.length && t("enhancedTag"), d.engine && t("eng_" + d.engine), d.mode && t("mode_" + d.mode), d.confirmed ? "✓ " + t("confirmed") : ""].filter(Boolean).join(" · ");
-  $("#rvWarn").textContent = d.warning || d.error || "";
+  if (!d) return;
+  const busy = isBusy(d);
+  $("#tTitle").value = RV.draft.title || "";
+  $("#tTitle").placeholder = d.name;
+  $("#tTitle").readOnly = !RV.editing;
+  $("#rvMeta").textContent = [d.name, SRC(d.source), d.engine && t("eng_" + d.engine), d.mode && t("mode_" + d.mode),
+    d.confirmed ? t("confirmed") : ""].filter(Boolean).join("  ·  ");
+  $("#rvBadge").classList.toggle("hidden", !(d.enhanced && d.enhanced.length));
+  const warn = busy ? t("rereading") : (d.error || d.warning || "");
+  $("#rvWarn").textContent = warn;
+  $("#rvWarnBox").classList.toggle("hidden", !warn);
+  $("#rvWarnBox").classList.toggle("err", !!d.error && !busy);
   const n = d.pages || 1;
-  $("#rvPages").innerHTML = n > 1 ? Array.from({ length: n }, (_, i) => `<button class="small ${i === RV.page ? "active" : ""}" data-p="${i}">${i + 1}</button>`).join("") : "";
+  $("#rvPages").innerHTML = n > 1 ? Array.from({ length: n }, (_, i) => `<button class="${i === RV.page ? "active" : ""}" data-p="${i}">${i + 1}</button>`).join("") : "";
   // v= changes when the page image changes (rotation / re-read), so the browser reloads it
-  $("#rvImg").src = keyed(`/api/doc/${d.id}/page/${RV.page}.jpg?v=${d.img_ver || 0}-${d.rotate || 0}`);
-  $("#rvImg").style.width = (RV.zoom * 100) + "%";
+  const src = keyed(`/api/doc/${d.id}/page/${RV.page}.jpg?v=${d.img_ver || 0}-${d.rotate || 0}`);
+  if ($("#rvImg").getAttribute("src") !== src) $("#rvImg").src = src;
+  applyZoom();
   $("#ocrText").textContent = d.text || "";
   $("#review").classList.toggle("editing", RV.editing);
-  $("#rvEdit").disabled = RV.editing;
-  $("#rvUndo").disabled = !RV.editing || !RV.undo.length;
-  $("#rvCancel").disabled = !RV.editing;
+  $("#rvUndo").disabled = !RV.undo.length;
+  $("#rvEdit").disabled = busy;
+  $("#rvRerun").disabled = busy;
+  $("#rotLeft").disabled = $("#rotRight").disabled = busy || RV.editing;
+  $("#rvConfirm").disabled = d.status !== "ready";
+  $("#rvConfirmLabel").textContent = RV.editing ? t("saveConfirm") : t("confirmNext");
+  $("#rvErp").disabled = !STATE.erp_ready;
+  $("#rvErp").title = STATE.erp_ready ? "" : t("erpNotSet");
   renderGrids();
+  renderCheck();
+  renderNext();
+}
+
+// The bill that "Confirm & next" will open.
+function nextDoc() {
+  const list = toReview().filter((d) => !RV.doc || d.id !== RV.doc.id);
+  if (!RV.doc) return list[0];
+  const order = (STATE.docs || []).map((d) => d.id);
+  const here = order.indexOf(RV.doc.id);
+  return list.find((d) => order.indexOf(d.id) > here) || list[0];
+}
+function renderNext() {
+  const nx = nextDoc();
+  $("#rvNext").innerHTML = nx
+    ? `${esc(t("nextLabel"))}<b>${esc(nx.title || nx.name)}</b>`
+    : `${esc(t("nextLabel"))}<b>${esc(t("nextNone"))}</b>`;
+}
+
+const NUM = /^[+-]?(RM\s*)?[\d,]*\.?\d+$/i;
+const toNum = (s) => parseFloat(String(s).replace(/RM|,|\s/gi, ""));
+const TOTAL_KEY = /total|amount\s*due|jumlah|合计|总计|总额/i, SUB_KEY = /sub\s*-?\s*total|小计|tax|gst|sst|discount/i;
+const AMT_COL = /^(total|amount|amt|jumlah|nett?\s*amount|金额|合计|小计)\b/i;
+// Proof line: do the line totals add up to the bill's total?
+function renderCheck() {
+  const tb = RV.draft, box = $("#rvCheck");
+  let total = null;
+  for (const f of tb.fields) if (TOTAL_KEY.test(f.key) && !SUB_KEY.test(f.key) && NUM.test(String(f.value).trim())) total = toNum(f.value);
+  let col = -1;
+  tb.columns.forEach((c, j) => { if (AMT_COL.test(String(c).trim())) col = j; });
+  const vals = col < 0 ? [] : tb.rows.map((r) => String(r[col] ?? "").trim()).filter((v) => v && NUM.test(v)).map(toNum);
+  if (total === null || !vals.length) { box.classList.add("hidden"); return; }
+  const sum = vals.reduce((a, b) => a + b, 0);
+  // Tax, service charge, discount and rounding sit between the line totals and the bill total.
+  let adj = 0, subtotal = null;
+  for (const f of tb.fields) {
+    const v = String(f.value).trim();
+    if (!NUM.test(v)) continue;
+    if (/sub\s*-?\s*total|小计/i.test(f.key)) subtotal = toNum(v);
+    else if (/tax|gst|sst|service|charge|税|服务费/i.test(f.key)) adj += toNum(v);
+    else if (/discount|rebate|less|折扣/i.test(f.key)) adj -= Math.abs(toNum(v));
+    else if (/round/i.test(f.key)) adj += toNum(v);
+  }
+  const near = (a, b) => Math.abs(a - b) < 0.015;
+  const ok = near(sum, total) || near(sum + adj, total) || (subtotal !== null && near(sum, subtotal));
+  box.classList.remove("hidden");
+  box.classList.toggle("bad", !ok);
+  box.querySelector("use").setAttribute("href", ok ? "#i-check" : "#i-alert");
+  box.querySelector("span").textContent = ok ? t("checkOk", { t: total.toFixed(2) }) : t("checkBad", { s: sum.toFixed(2), t: total.toFixed(2) });
 }
 
 function renderGrids() {
   const tb = RV.draft, ed = RV.editing;
   // Read-only (not disabled) outside edit mode, so text can still be selected and copied.
-  const dis = ed ? "" : "readonly";
-  $("#tTitle").value = tb.title || "";
+  const ro = ed ? "" : "readonly";
   $("#tTitle").readOnly = !ed;
-  $("#fieldsGrid").innerHTML = `<tr><th>${t("key")}</th><th>${t("value")}</th><th class="edit-only"></th></tr>` +
-    tb.fields.map((f, i) => `<tr>
-      <td><input data-f="${i}" data-k="key" value="${esc(f.key)}" ${dis}></td>
-      <td><input data-f="${i}" data-k="value" value="${esc(f.value)}" ${dis}></td>
-      <td class="edit-only"><button class="x" data-delf="${i}">✕</button></td></tr>`).join("");
+  $("#fieldsGrid").innerHTML = tb.fields.map((f, i) => `<div class="fcell">
+      <input class="k" data-f="${i}" data-k="key" value="${esc(f.key)}" ${ro} aria-label="${esc(t("key"))}">
+      <input class="v" data-f="${i}" data-k="value" value="${esc(f.value)}" ${ro} aria-label="${esc(f.key || t("value"))}">
+      <button class="x edit-only" data-delf="${i}" title="${esc(t("del"))}">${ico("x")}</button></div>`).join("");
+  $("#fieldsGrid").classList.toggle("hidden", !tb.fields.length && !ed);
+  const numeric = tb.columns.map((_, j) => {
+    const v = tb.rows.map((r) => String(r[j] ?? "").trim()).filter(Boolean);
+    return v.length > 0 && v.filter((x) => NUM.test(x)).length / v.length > 0.7;
+  });
   const width = (j) => {
     const vis = (s) => [...String(s || "")].reduce((n, ch) => n + (ch.charCodeAt(0) > 0x2e80 ? 2 : 1), 0);
     const m = Math.max(vis(tb.columns[j]), ...tb.rows.map((r) => vis(r[j])));
-    return Math.min(42, Math.max(6, m + 2));
+    return Math.min(42, Math.max(numeric[j] ? 5 : 6, m + 2));
   };
   $("#itemsGrid").innerHTML =
-    `<tr><th class="rn">#</th>${tb.columns.map((c, j) => `<th style="min-width:${width(j)}ch"><div class="th"><input data-col="${j}" value="${esc(c)}" ${dis}><button class="x edit-only" data-delc="${j}">✕</button></div></th>`).join("")}<th class="edit-only"></th></tr>` +
-    tb.rows.map((r, i) => `<tr><td class="rn">${i + 1}</td>${r.map((v, j) => `<td><input data-r="${i}" data-c="${j}" value="${esc(v)}" ${dis}></td>`).join("")}<td class="edit-only"><button class="x" data-delr="${i}">✕</button></td></tr>`).join("");
+    `<tr><th class="rn">#</th>${tb.columns.map((c, j) => `<th style="min-width:${width(j)}ch"><div class="th"><input data-col="${j}" value="${esc(c)}" ${ro}><button class="x edit-only" data-delc="${j}" title="${esc(t("del"))}">${ico("x")}</button></div></th>`).join("")}<th class="edit-only"></th></tr>` +
+    tb.rows.map((r, i) => `<tr><td class="rn">${i + 1}</td>${r.map((v, j) => `<td class="${numeric[j] ? "num" : ""}"><input data-r="${i}" data-c="${j}" value="${esc(v)}" ${ro}></td>`).join("")}<td class="edit-only"><button class="x" data-delr="${i}" title="${esc(t("del"))}">${ico("x")}</button></td></tr>`).join("");
 }
 
 function snapshot() {
@@ -402,21 +601,23 @@ function snapshot() {
   $("#rvUndo").disabled = false;
 }
 
-let focusSnap = null;
-$("#tabTable").addEventListener("focusin", (e) => { if (e.target.tagName === "INPUT" && RV.editing) focusSnap = clone(RV.draft); });
+// One undo step per field: the first change after a field gets focus saves the table as it was.
+let lastEdited = null;
+$("#tabTable").addEventListener("focusin", () => { lastEdited = null; });
 $("#tabTable").addEventListener("input", (e) => {
   if (!RV.editing) return;
   const el = e.target;
-  if (focusSnap) { RV.undo.push(focusSnap); focusSnap = null; $("#rvUndo").disabled = false; }
+  if (el !== lastEdited) { snapshot(); lastEdited = el; }
   const tb = RV.draft;
   if (el.id === "tTitle") tb.title = el.value;
   else if (el.dataset.f !== undefined) tb.fields[+el.dataset.f][el.dataset.k] = el.value;
   else if (el.dataset.col !== undefined) tb.columns[+el.dataset.col] = el.value;
   else if (el.dataset.r !== undefined) tb.rows[+el.dataset.r][+el.dataset.c] = el.value;
+  renderCheck();
 });
 $("#tabTable").addEventListener("click", (e) => {
   if (!RV.editing) return;
-  const b = e.target.closest("button");
+  const b = e.target.closest("button.x");
   if (!b) return;
   const tb = RV.draft;
   if (b.dataset.delf !== undefined) { snapshot(); tb.fields.splice(+b.dataset.delf, 1); }
@@ -426,10 +627,11 @@ $("#tabTable").addEventListener("click", (e) => {
     snapshot(); const j = +b.dataset.delc; tb.columns.splice(j, 1); tb.rows.forEach((r) => r.splice(j, 1));
   } else return;
   renderGrids();
+  renderCheck();
 });
 // Enter moves down a row in the item grid, like a spreadsheet.
 $("#itemsGrid").addEventListener("keydown", (e) => {
-  if (e.key !== "Enter" || e.target.dataset.r === undefined) return;
+  if (e.key !== "Enter" || e.ctrlKey || e.metaKey || e.target.dataset.r === undefined) return;
   e.preventDefault();
   const r = +e.target.dataset.r + (e.shiftKey ? -1 : 1), c = e.target.dataset.c;
   $(`#itemsGrid input[data-r="${r}"][data-c="${c}"]`)?.focus();
@@ -437,35 +639,62 @@ $("#itemsGrid").addEventListener("keydown", (e) => {
 
 $("#addField").onclick = () => { snapshot(); RV.draft.fields.push({ key: "", value: "" }); renderGrids(); $(`#fieldsGrid input[data-f="${RV.draft.fields.length - 1}"]`)?.focus(); };
 $("#addRow").onclick = () => { snapshot(); RV.draft.rows.push(RV.draft.columns.map(() => "")); renderGrids(); $(`#itemsGrid input[data-r="${RV.draft.rows.length - 1}"][data-c="0"]`)?.focus(); };
-$("#addCol").onclick = () => { snapshot(); RV.draft.columns.push(LANG === "zh" ? "新列" : "New column"); RV.draft.rows.forEach((r) => r.push("")); renderGrids(); };
+$("#addCol").onclick = () => { snapshot(); RV.draft.columns.push(t("newColumn")); RV.draft.rows.forEach((r) => r.push("")); renderGrids(); };
 
-$("#rvEdit").onclick = () => { RV.editing = true; renderReview(); };
-$("#rvUndo").onclick = () => { if (RV.undo.length) { RV.draft = RV.undo.pop(); renderReview(); } };
-$("#rvCancel").onclick = () => { RV.draft = clone(RV.doc.table); RV.undo = []; RV.editing = false; renderReview(); };
+$("#rvEdit").onclick = () => { RV.editing = true; renderReview(); $("#tTitle").focus(); };
+$("#rvUndo").onclick = () => { if (RV.undo.length) { RV.draft = RV.undo.pop(); lastEdited = null; renderReview(); } };
+$("#rvCancel").onclick = () => { RV.draft = clone(RV.doc.table || RV.draft); RV.undo = []; RV.editing = false; renderReview(); };
+// Confirm (saving any edits), then open the next bill waiting for review.
 $("#rvConfirm").onclick = async () => {
-  const r = await api(`/api/doc/${RV.doc.id}/table`, { method: "PUT", body: JSON.stringify({ table: RV.draft, confirmed: true }) });
-  RV.doc.table = r.table; RV.doc.confirmed = true;
-  RV.draft = clone(r.table); RV.undo = []; RV.editing = false;
-  selected.add(RV.doc.id);
-  toast(t("confirmedMsg"));
-  renderReview();
+  if (!RV.doc || RV.doc.status !== "ready") return;
+  const btn = $("#rvConfirm");
+  btn.disabled = true;
+  try {
+    const r = await api(`/api/doc/${RV.doc.id}/table`, { method: "PUT", body: JSON.stringify({ table: RV.draft, confirmed: true }) });
+    RV.doc.table = r.table; RV.doc.confirmed = true;
+    RV.draft = clone(r.table); RV.undo = []; RV.editing = false;
+    selected.add(RV.doc.id);
+    const nx = nextDoc();
+    if (nx) {
+      toast(t("confirmedNextMsg"));
+      await openReview(nx.id);
+    } else {
+      toast(t("allReviewed"), 5000);
+      renderReview();
+    }
+  } finally {
+    btn.disabled = false;
+  }
   refresh();
 };
+function setRerun(open) {
+  $("#rerunMenu").classList.toggle("hidden", !open);
+  $("#rvRerun").setAttribute("aria-expanded", open);
+}
+$("#rvRerun").onclick = (e) => { e.stopPropagation(); setRerun($("#rerunMenu").classList.contains("hidden")); };
 async function redo(kind) {
+  setRerun(false);
   await api(`/api/doc/${RV.doc.id}/redo`, { method: "POST", body: JSON.stringify({ kind }) });
-  closeReview(true);
-  refresh();
+  toast(t("rereading"), 4000);
+  await refresh();
 }
 $("#rvRedoAi").onclick = () => redo("ai");
 $("#rvRedoOcr").onclick = () => redo("full");
-function closeReview(force) {
-  if (!force && RV.editing && RV.undo.length && !confirm(t("unsaved"))) return;
-  RV.doc = null; RV.editing = false;
-  $("#review").classList.add("hidden");
-}
-$("#rvClose").onclick = () => closeReview();
+
+const anyModalOpen = () => !$("#settings").classList.contains("hidden") || !$("#dmResult").classList.contains("hidden");
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && RV.doc) closeReview();
+  if (e.key === "Escape") {
+    if (!$("#rerunMenu").classList.contains("hidden")) return setRerun(false);
+    if (!$("#phonePop").classList.contains("hidden")) return setPhonePop(false);
+    if (!$("#dmResult").classList.contains("hidden")) return $("#dmResult").classList.add("hidden");
+    if (!$("#settings").classList.contains("hidden")) return $("#settings").classList.add("hidden");
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && RV.doc && !anyModalOpen() && !$("#review").classList.contains("hidden")) {
+    e.preventDefault();
+    $("#rvConfirm").click();
+    return;
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === "z" && RV.editing && document.activeElement?.tagName !== "INPUT") { e.preventDefault(); $("#rvUndo").click(); }
 });
 $("#rvPages").addEventListener("click", (e) => { const p = e.target.dataset.p; if (p !== undefined) { RV.page = +p; renderReview(); } });
@@ -485,34 +714,47 @@ async function rotateDoc(deg) {
 $("#rotLeft").onclick = () => rotateDoc(-90);
 $("#rotRight").onclick = () => rotateDoc(90);
 
-// Divider between photo and result: drag to change the split, double-click to reset.
+// Divider between photo and result: drag (or arrow keys) to change the split, double-click to reset.
 (() => {
-  const split = $("#splitter"), left = $("#review .pane.original"), body = $("#review .review-body");
+  const split = $("#splitter"), left = $("#review .pane.original"), body = $("#review");
   const KEY = "d2x.split";
-  const apply = (pct) => { left.style.width = Math.min(85, Math.max(15, pct)) + "%"; };
+  const apply = (pct) => { left.style.width = Math.min(80, Math.max(20, pct)) + "%"; };
+  const save = () => { try { localStorage.setItem(KEY, parseFloat(left.style.width)); } catch {} };
   try { const v = parseFloat(localStorage.getItem(KEY)); if (v) apply(v); } catch {}
   split.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     split.setPointerCapture(e.pointerId);
     split.classList.add("dragging");
-    $("#review .review").classList.add("resizing");
+    body.classList.add("resizing");
     const r = body.getBoundingClientRect();
     const move = (ev) => apply(((ev.clientX - r.left) / r.width) * 100);
     const up = () => {
       split.removeEventListener("pointermove", move);
       split.classList.remove("dragging");
-      $("#review .review").classList.remove("resizing");
-      try { localStorage.setItem(KEY, parseFloat(left.style.width)); } catch {}
+      body.classList.remove("resizing");
+      save();
     };
     split.addEventListener("pointermove", move);
     split.addEventListener("pointerup", up, { once: true });
     split.addEventListener("pointercancel", up, { once: true });
   });
-  split.addEventListener("dblclick", () => { apply(42); try { localStorage.removeItem(KEY); } catch {} });
+  split.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const cur = parseFloat(left.style.width) || 44;
+    apply(cur + (e.key === "ArrowLeft" ? -2 : 2));
+    save();
+  });
+  split.addEventListener("dblclick", () => { left.style.width = ""; try { localStorage.removeItem(KEY); } catch {} });
 })();
 
-$("#zoomIn").onclick = () => { RV.zoom = Math.min(4, RV.zoom * 1.25); $("#rvImg").style.width = RV.zoom * 100 + "%"; };
-$("#zoomOut").onclick = () => { RV.zoom = Math.max(0.3, RV.zoom / 1.25); $("#rvImg").style.width = RV.zoom * 100 + "%"; };
+function applyZoom() {
+  $("#rvImg").style.width = RV.zoom * 100 + "%";
+  $("#zoomLevel").textContent = Math.round(RV.zoom * 100) + "%";
+}
+$("#zoomIn").onclick = () => { RV.zoom = Math.min(4, RV.zoom * 1.25); applyZoom(); };
+$("#zoomOut").onclick = () => { RV.zoom = Math.max(0.3, RV.zoom / 1.25); applyZoom(); };
+
 // ---- copy / save: OCR text tab -> plain text; table tab -> spreadsheet text ----
 const activeTab = () => document.querySelector(".tab.active")?.dataset.tab || "table";
 function cellText(v) {
@@ -579,20 +821,34 @@ $("#rvSave").onclick = async () => {
   }
 };
 
-document.querySelectorAll(".tab").forEach((b) => b.onclick = () => {
-  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x === b));
+$$(".tab").forEach((b) => b.onclick = () => {
+  $$(".tab").forEach((x) => { x.classList.toggle("active", x === b); x.setAttribute("aria-selected", x === b); });
   $("#tabTable").classList.toggle("hidden", b.dataset.tab !== "table");
   $("#tabText").classList.toggle("hidden", b.dataset.tab !== "text");
 });
 
 // ---------------- settings ----------------
+function showSection(sec) {
+  $$(".set-item").forEach((b) => b.classList.toggle("active", b.dataset.sec === sec));
+  $$(".set-sec").forEach((s) => s.classList.toggle("hidden", s.dataset.sec !== sec));
+}
+$$(".set-item").forEach((b) => b.onclick = () => showSection(b.dataset.sec));
+function sectionStates(s) {
+  const put = (id, text, cls) => { const el = $(id); el.textContent = text; el.className = cls || ""; };
+  put("#secAiState", STATE.llm_ready ? t("setOn", { m: STATE.llm_model || "LLM" }) : t("setNoKey"), STATE.llm_ready ? "ok" : "warn");
+  put("#secVisionState", STATE.vision_ready ? t("setOn", { m: s.VISION_MODEL || "" }) : t("setVisionOff"), STATE.vision_ready ? "ok" : "");
+  put("#secPhotoState", s.PHOTO_ENHANCE === "off" ? t("optEnhanceOffShort") : t("optEnhanceAutoShort"));
+  put("#secErpState", STATE.erp_ready ? t("setErpOn") : t("setErpOff"), STATE.erp_ready ? "ok" : "warn");
+  put("#secDmState", s.DYNAMOD_WORKBOOK ? t("setDmOn") : t("setDmOff"), s.DYNAMOD_WORKBOOK ? "ok" : "");
+  put("#secVerState", STATE.version || "");
+}
 $("#btnSettings").onclick = async () => {
   const s = await api("/api/settings");
   const dlg = $("#settings");
   dlg.querySelectorAll("[name]").forEach((el) => {
     if (el.type === "password") {
       el.value = "";
-      el.placeholder = s[el.name + "_SET"] ? "••••••••  (set)" : "(not set)";
+      el.placeholder = s[el.name + "_SET"] ? t("keyKeep") : t("keyNotSet");
     } else el.value = s[el.name] ?? "";
   });
   $("#envPath").textContent = s.ENV_PATH;
@@ -601,9 +857,14 @@ $("#btnSettings").onclick = async () => {
   kn.textContent = t(kn.dataset.i18n);
   $("#verCurrent").textContent = STATE.version || "?";
   $("#checkResult").textContent = "";
+  $("#erpTestResult").textContent = "";
+  sectionStates(s);
+  showSection("ai");
   dlg.classList.remove("hidden");
 };
 $("#setCancel").onclick = () => $("#settings").classList.add("hidden");
+$("#settings").addEventListener("click", (e) => { if (e.target.id === "settings") $("#settings").classList.add("hidden"); });
+$("#dmResult").addEventListener("click", (e) => { if (e.target.id === "dmResult") $("#dmResult").classList.add("hidden"); });
 $("#setSave").onclick = async () => {
   const body = {};
   $("#settings").querySelectorAll("[name]").forEach((el) => (body[el.name] = el.value));
@@ -612,7 +873,8 @@ $("#setSave").onclick = async () => {
   } catch (e) {
     if (e.data?.error === "key_required" || e.data?.error === "bad_model") {
       toast(t(e.data.error === "bad_model" ? "badModel" : "keyRequired"), 9000);
-      $(`#settings [name="${e.data.field}"]`)?.focus();
+      const field = $(`#settings [name="${e.data.field}"]`);
+      if (field) { showSection(field.closest(".set-sec").dataset.sec); field.focus(); }
       return;
     }
     throw e;
@@ -687,12 +949,6 @@ $("#btnUpdate").onclick = async () => {
 
 
 // ---------------- AI ERP: send original files to the ERP scan queue ----------------
-function erpChip(d) {
-  if (!d.erp_state) return "";
-  const cls = { sent: "ok", already: "ok", failed: "error", sending: "" }[d.erp_state] || "";
-  const label = t("erp_" + d.erp_state);
-  return `<span class="badge ${cls}" title="${esc(d.erp_message || "")}">${d.erp_state === "sending" ? '<i class="spin"></i>' : ""}${esc(label)}</span>`;
-}
 async function sendToErp(ids) {
   if (!STATE.erp_ready) { toast(t("erpNotSet"), 5000); return; }
   let sent = 0, already = 0, failed = 0, lastErr = "";
@@ -721,6 +977,7 @@ $("#rvErp").onclick = () => RV.doc && sendToErp([RV.doc.id]);
 $("#erpTest").onclick = async () => {
   const out = $("#erpTestResult");
   const url = $('#settings [name="ERP_URL"]').value.trim(), tok = $('#settings [name="ERP_TOKEN"]').value;
+  out.className = "hint";
   out.textContent = t("erpTesting");
   try {  // save first so the test uses what is typed
     await api("/api/settings", { method: "POST", body: JSON.stringify({ ERP_URL: url, ERP_TOKEN: tok }) });

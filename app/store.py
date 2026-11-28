@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import queue
+import re
 import shutil
 import threading
 import time
@@ -12,6 +13,26 @@ import uuid
 from pathlib import Path
 
 from . import config, ocr, structure
+
+# Header fields the inbox shows next to each document (display only).
+_REF_KEY = re.compile(r"\b(invoice|bill|receipt|doc(ument)?|inv|ref)\b.*\b(no|number|#)|^no\.?$|单号|发票号|编号|no\.?\s*invois", re.I)
+_TOTAL_KEY = re.compile(r"total|amount\s*due|jumlah|合计|总计|总额|金额", re.I)
+_SUBTOTAL_KEY = re.compile(r"sub\s*-?\s*total|小计|tax|gst|sst|discount", re.I)
+
+
+def _ref_and_total(fields: list) -> tuple[str, str]:
+    ref = total = ""
+    for f in fields:
+        if not isinstance(f, dict):
+            continue
+        key, val = str(f.get("key") or ""), str(f.get("value") or "").strip()
+        if not val:
+            continue
+        if not ref and _REF_KEY.search(key):
+            ref = val
+        if _TOTAL_KEY.search(key) and not _SUBTOTAL_KEY.search(key):
+            total = val          # the last total-like field is usually the grand total
+    return ref[:40], total[:24]
 
 
 class Store:
@@ -83,6 +104,7 @@ class Store:
                 s["title"] = t.get("title", "")
                 s["doc_type"] = t.get("doc_type", "")
                 s["n_rows"] = len(t.get("rows", []))
+                s["ref"], s["total"] = _ref_and_total(t.get("fields") or [])
                 out.append(s)
             return out
 

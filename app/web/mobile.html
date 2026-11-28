@@ -3,129 +3,197 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<!-- Status bar matches the green header in both schemes. -->
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#1f6f54">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1f6f54">
+<!-- Status bar matches the midnight header in both schemes. -->
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#0f1d3a">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1d3a">
 <meta name="color-scheme" content="light">
 <title>Doc2Excel · 上传</title>
 <style>
-  :root { --brand: #1f6f54; --brand-press: #185a44; --muted: #6b7686;
-    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-    --shadow-sm: 0 0 0 1px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.05); }
+  :root { --ink: #0f1d3a; --text: #14203b; --muted: #5b6478; --porc: #f7f5ef; --line: #e3dfd3; --red: #d7372f; --red-press: #b92c25;
+    --blue: #2457c5; --green: #1f8a4c; --ease-out: cubic-bezier(0.23, 1, 0.32, 1); }
   * { box-sizing: border-box; }
   html {
     -webkit-tap-highlight-color: transparent;   /* no grey flash on tap */
     -webkit-text-size-adjust: 100%;             /* no font inflation in landscape */
     overscroll-behavior: none;                  /* pull-to-refresh would wipe the upload list */
   }
-  body { margin: 0; min-height: 100dvh; font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-    background: #f4f6f9; color: #1d2733; -webkit-font-smoothing: antialiased; }
+  body { margin: 0; min-height: 100dvh; font-family: "Atkinson Next", -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--porc); color: var(--text); -webkit-font-smoothing: antialiased; }
+  svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
   /* Edge to edge under the notch, content padded back out of it. */
-  header { position: relative; background: var(--brand); color: #fff;
-    padding: calc(18px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 16px calc(16px + env(safe-area-inset-left, 0px)); }
-  header h1 { margin: 0; font-size: 22px; letter-spacing: -0.01em; }
-  header p { margin: 4px 0 0; opacity: .85; font-size: 14px; }
-  main { padding: 16px calc(16px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+  header { position: relative; background: var(--ink); color: var(--porc);
+    padding: calc(20px + env(safe-area-inset-top, 0px)) calc(20px + env(safe-area-inset-right, 0px)) 18px calc(20px + env(safe-area-inset-left, 0px)); }
+  h1 { margin: 0; font-size: 25px; letter-spacing: -0.01em; }
+  header p { margin: 5px 0 0; opacity: .78; font-size: 14.5px; }
+  /* the line: phone -> read -> build -> review on PC */
+  .line { display: flex; align-items: center; margin-top: 16px; }
+  .line i { width: 12px; height: 12px; border-radius: 50%; background: var(--porc); border: 3px solid var(--red); flex-shrink: 0; }
+  .line i.cur { width: 18px; height: 18px; background: var(--ink); border-color: var(--porc); box-shadow: inset 0 0 0 3px var(--red); }
+  .line b { flex: 1; height: 4px; background: var(--red); }
+  .ll { display: flex; justify-content: space-between; font-size: 11.5px; opacity: .8; margin-top: 6px; font-weight: 500; }
+  main { padding: 18px calc(16px + env(safe-area-inset-right, 0px)) calc(24px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
   /* Tappable controls: instant click, no text selection or callout on long-press, press feedback on touch-down. */
-  .btn, .lang { touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; }
-  .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 18px; margin-bottom: 12px;
-    font-size: 17px; font-weight: 600; border-radius: 14px; background: #fff; color: inherit; box-shadow: var(--shadow-sm);
+  .btn, .lang, .retry { touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; }
+  .btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; border-radius: 14px; font-weight: 700;
     transition: transform 120ms var(--ease-out), background-color 120ms ease; }
-  .btn:active { transform: scale(0.97); background: #eef1f5; }
-  .btn.primary { background: var(--brand); color: #fff; box-shadow: 0 1px 2px rgba(31, 111, 84, 0.35); }
-  .btn.primary:active { background: var(--brand-press); }
-  .btn .ic { font-size: 22px; }
+  .btn:active { transform: scale(0.97); }
+  .btn.cam { height: 64px; font-size: 18px; background: var(--red); color: #fff; box-shadow: 0 2px 0 rgba(122, 20, 14, .25); }
+  .btn.cam:active { background: var(--red-press); }
+  .btn.pick { height: 54px; margin-top: 10px; font-size: 16px; font-weight: 600; background: #fff; border: 1px solid #d6d1c2; }
+  .btn.pick:active { background: #eeece4; }
   input[type=file] { display: none; }
-  .list { margin-top: 10px; }
+  h2 { font-size: 13px; color: var(--muted); margin: 22px 4px 8px; font-weight: 600; display: flex; }
+  h2 #okCount { margin-left: auto; color: var(--green); }
+  h2.hidden, .hidden { display: none; }
   /* New upload rows slide in (occasional event, so it earns a short enter). */
-  .item { display: flex; align-items: center; gap: 10px; background: #fff; box-shadow: var(--shadow-sm); border-radius: 12px; padding: 10px; margin-bottom: 8px;
+  .item { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px;
     transition: opacity 250ms var(--ease-out), transform 250ms var(--ease-out); }
   @starting-style { .item { opacity: 0; transform: translateY(8px); } }
-  .item img { width: 46px; height: 46px; object-fit: cover; border-radius: 6px; background: #eee; flex-shrink: 0; }
-  .item .name { flex: 1; min-width: 0; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .item .st { font-size: 13px; color: var(--muted); white-space: nowrap; }
-  .item .st.ok { color: var(--brand); font-weight: 600; }
-  .item .st.err { color: #c0392b; }
-  .bar { height: 4px; background: #e6eaf0; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .item img, .item .pdf { width: 48px; height: 48px; object-fit: cover; border-radius: 7px; background: #ece8dc; flex-shrink: 0; }
+  .item .pdf { display: grid; place-items: center; color: var(--muted); font-size: 11px; font-weight: 700; }
+  .item .name { flex: 1; min-width: 0; }
+  .item .name b { display: block; font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .name small { font-size: 12.5px; color: var(--muted); }
+  .item .name small.err { color: var(--red); }
+  .item .st { font-size: 13.5px; font-weight: 600; white-space: nowrap; color: var(--text); display: flex; gap: 4px; align-items: center; font-variant-numeric: tabular-nums; }
+  .item .st.ok { color: var(--green); }
+  .item .st svg.i { width: 16px; height: 16px; }
+  .bar { height: 4px; background: #e6e2d6; border-radius: 2px; margin-top: 7px; overflow: hidden; }
   /* Progress via transform (compositor), not width (layout). */
-  .bar i { display: block; height: 100%; width: 100%; background: var(--brand); transform: scaleX(0); transform-origin: left;
+  .bar i { display: block; height: 100%; width: 100%; background: var(--red); transform: scaleX(0); transform-origin: left;
     transition: transform 200ms var(--ease-out); }
-  .tip { color: var(--muted); font-size: 13px; line-height: 1.6; margin-top: 16px; }
-  .lang { position: absolute; right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(14px + env(safe-area-inset-top, 0px));
-    background: rgba(255,255,255,.18); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 14px;
+  .retry { border: 0; font: inherit; font-size: 13px; font-weight: 700; color: var(--blue); padding: 8px 12px; border-radius: 9px; background: #eaf0fb; }
+  .retry:active { transform: scale(0.96); }
+  .tip { color: var(--muted); font-size: 13px; line-height: 1.55; margin: 16px 6px 0; display: flex; gap: 10px; }
+  .tip svg.i { width: 18px; height: 18px; margin-top: 1px; color: var(--ink); }
+  .lang { position: absolute; right: calc(16px + env(safe-area-inset-right, 0px)); top: calc(18px + env(safe-area-inset-top, 0px));
+    background: rgba(247,245,239,.14); color: var(--porc); border: none; border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 14px; font-weight: 600;
     transition: transform 120ms var(--ease-out), background-color 120ms ease; }
-  .lang:active { transform: scale(0.96); background: rgba(255,255,255,.28); }
+  .lang:active { transform: scale(0.96); background: rgba(247,245,239,.26); }
   @media (prefers-reduced-motion: reduce) {
-    .btn:active, .lang:active { transform: none; }
+    .btn:active, .lang:active, .retry:active { transform: none; }
     @starting-style { .item { transform: none; } }
   }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+  <symbol id="i-img" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.4 1.4M17.6 17.6L19 19M5 19l1.4-1.4M17.6 6.4L19 5"/></symbol>
+</defs></svg>
 <header>
   <button class="lang" id="lang">EN</button>
   <h1 id="h1"></h1>
   <p id="sub"></p>
+  <div class="line" aria-hidden="true"><i class="cur"></i><b></b><i></i><b></b><i></i><b></b><i></i></div>
+  <div class="ll" aria-hidden="true"><span id="l1"></span><span id="l2"></span><span id="l3"></span><span id="l4"></span></div>
 </header>
 <main>
-  <label class="btn primary"><span class="ic">📷</span><span id="bCam"></span>
+  <label class="btn cam"><svg class="i"><use href="#i-cam"/></svg><span id="bCam"></span>
     <input id="cam" type="file" accept="image/*" capture="environment"></label>
-  <label class="btn"><span class="ic">🖼️</span><span id="bPick"></span>
+  <label class="btn pick"><svg class="i"><use href="#i-img"/></svg><span id="bPick"></span>
     <input id="pick" type="file" accept="image/*,application/pdf,.pdf,.heic" multiple></label>
+  <h2 id="listHead" class="hidden"><span id="listTitle"></span><span id="okCount"></span></h2>
   <div class="list" id="list"></div>
-  <p class="tip" id="tip"></p>
+  <p class="tip"><svg class="i"><use href="#i-sun"/></svg><span id="tip"></span></p>
 </main>
 <script>
 const T = {
-  zh: { h1: "上传到电脑", sub: "照片或 PDF 会发送到 Doc2Excel", cam: "拍照", pick: "选择图片 / PDF",
+  zh: { h1: "上传到电脑", sub: "照片或 PDF 会直接发送到 Doc2Excel", cam: "拍照", pick: "选择图片 / PDF",
+        l1: "手机", l2: "识别", l3: "整理", l4: "电脑上审核",
         tip: "拍照时尽量平放、光线充足、整张纸都在画面里。可以连续拍多张，每张都会自动上传。",
-        up: "上传中…", ok: "✓ 已发送", err: "失败", rej: "不支持的格式" },
-  en: { h1: "Send to PC", sub: "Photos or PDFs go to Doc2Excel on your computer", cam: "Take photo", pick: "Choose images / PDFs",
-        tip: "Lay the page flat in good light with the whole sheet in frame. Take as many photos as you like; each one uploads automatically.",
-        up: "Uploading…", ok: "✓ Sent", err: "Failed", rej: "Unsupported" },
+        list: "本次已发送", okN: "{n} 张已到电脑", ok: "已发送", lost: "连接断了", fail: "失败（{s}）", rej: "不支持的格式", retry: "重试" },
+  en: { h1: "Send to PC", sub: "Photos and PDFs go straight to Doc2Excel", cam: "Take photo", pick: "Choose images or PDFs",
+        l1: "Phone", l2: "Read", l3: "Build", l4: "Review on PC",
+        tip: "Lay the page flat in good light with the whole sheet in frame. Take as many as you like; each one uploads by itself.",
+        list: "Sent this session", okN: "{n} on the PC", ok: "Sent", lost: "Lost the connection", fail: "Failed ({s})", rej: "Unsupported file", retry: "Try again" },
 };
 let L = localStorage.getItem("lang") || ((navigator.language || "").startsWith("en") ? "en" : "zh");
 const $ = (s) => document.querySelector(s);
+let okN = 0;
+const base = location.pathname.replace(/\/$/, "");
+// The UI font is served next to this page (the phone cannot reach the PC's /static).
+try {
+  for (const [f, r] of [["atkinson-next-latin.woff2", "U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2212"], ["atkinson-next-latin-ext.woff2", "U+0100-02FF,U+1E00-1EFF,U+20A0-20C0"]]) {
+    const face = new FontFace("Atkinson Next", `url(${base}/font/${f})`, { weight: "200 800", unicodeRange: r, display: "swap" });
+    face.load().then((ff) => document.fonts.add(ff)).catch(() => {});
+  }
+} catch (_) {}
+
 function apply() {
   const t = T[L];
-  $("#h1").textContent = t.h1; $("#sub").textContent = t.sub; $("#bCam").textContent = t.cam;
-  $("#bPick").textContent = t.pick; $("#tip").textContent = t.tip; $("#lang").textContent = L === "zh" ? "EN" : "中文";
+  for (const k of ["h1", "sub", "l1", "l2", "l3", "l4", "tip"]) $("#" + k).textContent = t[k];
+  $("#bCam").textContent = t.cam; $("#bPick").textContent = t.pick;
+  $("#listTitle").textContent = t.list;
+  $("#okCount").textContent = okN ? t.okN.replace("{n}", okN) : "";
+  $("#lang").textContent = L === "zh" ? "EN" : "中文";
   document.documentElement.lang = L;
+  document.querySelectorAll(".retry").forEach((b) => (b.textContent = t.retry));
 }
 $("#lang").onclick = () => { L = L === "zh" ? "en" : "zh"; localStorage.setItem("lang", L); apply(); };
 apply();
 
-const uploadUrl = location.pathname.replace(/\/$/, "") + "/upload";
-function send(file) {
-  const t = T[L];
-  const row = document.createElement("div");
-  row.className = "item";
+const size = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + " MB" : Math.max(1, Math.round(n / 1024)) + " KB";
+const uploadUrl = base + "/upload";
+function row(file) {
+  const r = document.createElement("div");
+  r.className = "item";
   const isImg = file.type.startsWith("image/");
-  row.innerHTML = `<img alt=""><div class="name"></div><div class="st">${t.up}</div>`;
-  row.querySelector(".name").textContent = file.name;
-  const bar = document.createElement("div"); bar.className = "bar"; bar.innerHTML = "<i></i>";
-  row.querySelector(".name").appendChild(bar);
-  if (isImg) row.querySelector("img").src = URL.createObjectURL(file);
-  else row.querySelector("img").replaceWith(Object.assign(document.createElement("div"), { textContent: "📄", style: "font-size:30px;width:46px;text-align:center" }));
-  $("#list").prepend(row);
+  r.innerHTML = `${isImg ? '<img alt="">' : '<div class="pdf">PDF</div>'}<div class="name"><b></b><small></small><div class="bar"><i></i></div></div><div class="st">0%</div>`;
+  r.querySelector("b").textContent = file.name;
+  r.querySelector("small").textContent = size(file.size);
+  if (isImg) r.querySelector("img").src = URL.createObjectURL(file);
+  $("#list").prepend(r);
+  $("#listHead").classList.remove("hidden");
+  return r;
+}
+function send(file, r) {
+  r = r || row(file);
+  const t = () => T[L];
+  const small = r.querySelector("small");
+  const st = r._st || (r._st = r.querySelector(".st"));
+  let bar = r.querySelector(".bar");
+  if (!bar) { bar = document.createElement("div"); bar.className = "bar"; bar.innerHTML = "<i></i>"; r.querySelector(".name").appendChild(bar); }
+  small.textContent = size(file.size); small.className = "";
+  st.className = "st"; st.textContent = "0%";
+  r.querySelector(".retry")?.remove();
+  if (!r.contains(st)) r.appendChild(st);
   const fd = new FormData();
   fd.append("files", file, file.name);
   const xhr = new XMLHttpRequest();
   xhr.open("POST", uploadUrl);
-  xhr.upload.onprogress = (e) => { if (e.lengthComputable) bar.firstChild.style.transform = "scaleX(" + (e.loaded / e.total) + ")"; };
+  xhr.upload.onprogress = (e) => {
+    if (!e.lengthComputable) return;
+    bar.firstChild.style.transform = "scaleX(" + (e.loaded / e.total) + ")";
+    st.textContent = Math.round((e.loaded / e.total) * 100) + "%";
+  };
+  const failed = (msg) => {
+    bar.remove();
+    small.textContent = msg; small.className = "err";
+    st.remove();
+    const b = document.createElement("button");
+    b.className = "retry"; b.textContent = t().retry;
+    b.onclick = () => send(file, r);       // same file again, no need to re-take the photo
+    r.appendChild(b);
+  };
   xhr.onload = () => {
-    const st = row.querySelector(".st");
     let ok = xhr.status === 200, rej = false;
     try { const j = JSON.parse(xhr.responseText); rej = j.rejected && j.rejected.length > 0; ok = ok && !rej; } catch (_) {}
-    st.textContent = ok ? t.ok : (rej ? t.rej : t.err + " (" + xhr.status + ")");
-    st.className = "st " + (ok ? "ok" : "err");
+    if (rej) { bar.remove(); st.textContent = t().rej; st.className = "st"; return; }
+    if (!ok) return failed(t().fail.replace("{s}", xhr.status));
     bar.remove();
+    st.className = "st ok";
+    st.innerHTML = '<svg class="i"><use href="#i-check"/></svg>';
+    st.appendChild(document.createTextNode(t().ok));
+    okN++; apply();
   };
-  xhr.onerror = () => { const st = row.querySelector(".st"); st.textContent = t.err; st.className = "st err"; };
+  xhr.onerror = () => failed(t().lost);
   xhr.send(fd);
 }
 for (const id of ["cam", "pick"]) {
-  $("#" + id).addEventListener("change", (e) => { [...e.target.files].forEach(send); e.target.value = ""; });
+  $("#" + id).addEventListener("change", (e) => { [...e.target.files].forEach((f) => send(f)); e.target.value = ""; });
 }
 </script>
 </body>
