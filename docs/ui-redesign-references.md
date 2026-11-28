@@ -5,10 +5,11 @@ come first and are approved before any code changes.
 
 ## Taste
 
-The user asked for the "impeccable" skill (pbakaus/impeccable, a community
-frontend-design skill). It is not installed in this environment, so the design
-follows `emil-design-eng` (Emil Kowalski's design-engineering rules), per the
-user's standing rule for UI work:
+Taste comes from the "impeccable" skill (pbakaus/impeccable v4.11.1, installed
+as a user skill). The tool is an **Operate** surface: precision and restraint,
+familiar patterns, brand in the details. Motion details follow
+`emil-design-eng` (Emil Kowalski's design-engineering rules), per the user's
+standing rule for UI work:
 
 - Motion only where it explains something: modal/sheet enter, toast, status
   change, drop target. No animation on keyboard actions, list polling or tabs
