@@ -22,13 +22,13 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
-from . import net
+from . import edition, net
 from .version import VERSION
 
-REPO = "weilun9/doc2excel"
+REPO = edition.REPO          # each edition updates only from its own repository
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 DOWNLOAD_PREFIX = f"/{REPO}/releases/download/"
-HEADERS = {"User-Agent": "Doc2Excel-updater", "Accept": "application/vnd.github+json"}
+HEADERS = {"User-Agent": f"{edition.APP_ID}-updater", "Accept": "application/vnd.github+json"}
 CHUNK = 256 * 1024
 
 
@@ -75,7 +75,7 @@ def check(current: str = VERSION, urlopen=net.urlopen) -> dict:
             "notes": rel.get("body") or "", "page": rel.get("html_url") or ""}
     if not parse_version(latest) or not is_newer(latest, current):
         return info
-    name = f"Doc2Excel-Setup-{latest}.exe"
+    name = f"{edition.SETUP_PREFIX}-{latest}.exe"
     asset = next((a for a in rel.get("assets") or [] if a.get("name") == name), None)
     if not asset:
         return info  # release without an installer: nothing to install

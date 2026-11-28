@@ -15,11 +15,20 @@ Unicode true
 !ifndef VERSION
   !define VERSION "1.1.2"
 !endif
-!define APP "Doc2Excel"
+; Edition (build.ps1 -Edition passes these). APP_ID names folders, registry
+; keys and the single-instance lock; APP_NAME is what the user sees.
+!ifndef APP_ID
+  !define APP_ID "Doc2Excel"
+!endif
+!ifndef APP_NAME
+  !define APP_NAME "Doc2Excel Pro"
+!endif
+!define APP "${APP_ID}"
+!define EXE "Doc2Excel"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP}"
 
-Name "${APP}"
-OutFile "..\dist\${APP}-Setup-${VERSION}.exe"
+Name "${APP_NAME}"
+OutFile "..\dist\${EXE}-Setup-${VERSION}.exe"
 InstallDir "$LOCALAPPDATA\Programs\${APP}"
 InstallDirRegKey HKCU "Software\${APP}" "InstallDir"
 RequestExecutionLevel user
@@ -27,8 +36,8 @@ SetCompressor /SOLID lzma
 Icon "..\assets\icon.ico"
 UninstallIcon "..\assets\icon.ico"
 VIProductVersion "${VERSION}.0"
-VIAddVersionKey "ProductName" "${APP}"
-VIAddVersionKey "FileDescription" "${APP} Setup"
+VIAddVersionKey "ProductName" "${APP_NAME}"
+VIAddVersionKey "FileDescription" "${APP_NAME} Setup"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" ""
@@ -39,7 +48,7 @@ VIAddVersionKey "LegalCopyright" ""
 !define MUI_ICON "..\assets\icon.ico"
 !define MUI_UNICON "..\assets\icon.ico"
 !define MUI_ABORTWARNING
-!define MUI_FINISHPAGE_RUN "$INSTDIR\${APP}.exe"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${EXE}.exe"
 
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -50,8 +59,8 @@ VIAddVersionKey "LegalCopyright" ""
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 
-LangString RunningMsg ${LANG_SIMPCHINESE} "Doc2Excel 正在运行。请先关闭它的窗口，再按“确定”继续。"
-LangString RunningMsg ${LANG_ENGLISH} "Doc2Excel is running. Close its window, then press OK to continue."
+LangString RunningMsg ${LANG_SIMPCHINESE} "${APP_NAME} 正在运行。请先关闭它的窗口，再按“确定”继续。"
+LangString RunningMsg ${LANG_ENGLISH} "${APP_NAME} is running. Close its window, then press OK to continue."
 
 Function .onInit
   ${IfNot} ${Silent}
@@ -75,7 +84,7 @@ Function .onInstSuccess
     System::Call 'kernel32::SetEnvironmentVariable(t "_PYI_SPLASH_IPC", p 0)'
     System::Call 'kernel32::SetEnvironmentVariable(t "_MEIPASS2", p 0)'
     System::Call 'kernel32::SetEnvironmentVariable(t "PYINSTALLER_RESET_ENVIRONMENT", t "1")'
-    Exec '"$INSTDIR\${APP}.exe"'
+    Exec '"$INSTDIR\${EXE}.exe"'
   ${EndIf}
 FunctionEnd
 
@@ -84,7 +93,7 @@ FunctionEnd
 !macro WaitForAppClosed
   StrCpy $1 0
   retry:
-  System::Call 'kernel32::OpenMutexW(i 0x00100000, i 0, w "Local\Doc2Excel.SingleInstance") p.r0'
+  System::Call 'kernel32::OpenMutexW(i 0x00100000, i 0, w "Local\${APP_ID}.SingleInstance") p.r0'
   ${If} $0 P<> 0
     System::Call 'kernel32::CloseHandle(p r0)'
     ${If} ${Silent}
@@ -101,26 +110,39 @@ FunctionEnd
   ${EndIf}
 !macroend
 
-Section "Doc2Excel" SecMain
+Section "${APP_NAME}" SecMain
   SectionIn RO
   !insertmacro WaitForAppClosed
   SetOutPath "$INSTDIR"
-  File "..\dist\${APP}.exe"
+  ; Upgrading this install (its exe is already here), not a fresh one?
+  StrCpy $1 0
+  ${If} ${FileExists} "$INSTDIR\${EXE}.exe"
+    StrCpy $1 1
+  ${EndIf}
+  File "..\dist\${EXE}.exe"
   File "..\.env.example"
   ; Keep the user's settings and keys on upgrade.
   ${IfNot} ${FileExists} "$INSTDIR\.env"
     CopyFiles /SILENT "$INSTDIR\.env.example" "$INSTDIR\.env"
   ${EndIf}
 
-  CreateShortCut "$SMPROGRAMS\${APP}.lnk" "$INSTDIR\${APP}.exe"
-  CreateShortCut "$DESKTOP\${APP}.lnk" "$INSTDIR\${APP}.exe"
+  ; Releases before the edition split named the shortcuts after APP_ID; when
+  ; the shown name differs (internal: "Doc2Excel Pro"), replace the old ones.
+  !if "${APP_NAME}" != "${APP_ID}"
+    ${If} $1 == 1
+      Delete "$SMPROGRAMS\${APP_ID}.lnk"
+      Delete "$DESKTOP\${APP_ID}.lnk"
+    ${EndIf}
+  !endif
+  CreateShortCut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\${EXE}.exe"
+  CreateShortCut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${EXE}.exe"
 
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\${APP}" "InstallDir" "$INSTDIR"
-  WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "${APP}"
+  WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "${APP_NAME}"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${VERSION}"
-  WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${APP}"
-  WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\${APP}.exe"
+  WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "${APP_NAME}"
+  WriteRegStr HKCU "${UNINST_KEY}" "DisplayIcon" "$INSTDIR\${EXE}.exe"
   WriteRegStr HKCU "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINST_KEY}" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   WriteRegDWORD HKCU "${UNINST_KEY}" "NoModify" 1
@@ -129,13 +151,13 @@ SectionEnd
 
 Section "Uninstall"
   !insertmacro WaitForAppClosed
-  Delete "$INSTDIR\${APP}.exe"
+  Delete "$INSTDIR\${EXE}.exe"
   Delete "$INSTDIR\.env.example"
   Delete "$INSTDIR\Uninstall.exe"
   ; .env (settings + API keys) is left in place; remove the folder only if empty.
   RMDir "$INSTDIR"
-  Delete "$SMPROGRAMS\${APP}.lnk"
-  Delete "$DESKTOP\${APP}.lnk"
+  Delete "$SMPROGRAMS\${APP_NAME}.lnk"
+  Delete "$DESKTOP\${APP_NAME}.lnk"
   DeleteRegKey HKCU "${UNINST_KEY}"
   DeleteRegKey HKCU "Software\${APP}"
 SectionEnd

@@ -10,9 +10,10 @@ import sys
 import threading
 from pathlib import Path
 
-from . import keystore
+from . import edition, keystore
+from .destinations.specs import settings_for
 
-APP_NAME = "Doc2Excel"
+APP_NAME = edition.APP_ID   # folders and credential names; "Doc2Excel" for the internal edition
 
 if getattr(sys, "frozen", False):
     BASE_DIR = Path(sys.executable).resolve().parent
@@ -43,23 +44,17 @@ DEFAULTS: dict[str, str] = {
     "AI_MODE": "auto",
     # auto = clean up photos before OCR/AI (crop page, remove shadows, sharpen) | off
     "PHOTO_ENHANCE": "auto",
-    # AI ERP connection ("发送到 ERP"): the ERP address and a scan token the
-    # user makes in the ERP (Scan documents > Connect Doc2Excel).
-    "ERP_URL": "",
-    "ERP_TOKEN": "",
-    # SmartAcc DynaMod supplier-bill import ("DynaMod 进单"):
-    #   the user's own 进单整理模板 (供应商 + 条码对照 sheets, stays on this PC),
-    #   DynaMod's blank import templates, the import-file folder, and Location ID.
-    "DYNAMOD_WORKBOOK": "",
-    "DYNAMOD_TEMPLATE_DIR": r"C:\SmartAcc\DynaMod\Import Template",
-    "DYNAMOD_OUT_DIR": r"C:\Opp",
-    "DYNAMOD_LOCATION": "HQ",
     "WATCH_DIR": str(DOCS_HOME / "Inbox"),
     "SERVER_PORT": "8765",
     "UI_LANG": "zh",
 }
 
-SECRET_KEYS = {"LLM_API_KEY", "VISION_API_KEY", "ERP_TOKEN"}
+SECRET_KEYS = {"LLM_API_KEY", "VISION_API_KEY"}
+
+# Settings of the destinations this edition ships (e.g. ERP_URL / ERP_TOKEN).
+_dest_defaults, _dest_secrets = settings_for(edition.DESTINATIONS)
+DEFAULTS.update(_dest_defaults)
+SECRET_KEYS |= _dest_secrets
 
 _lock = threading.Lock()
 _values: dict[str, str] = {}
@@ -81,7 +76,7 @@ def _parse_env(text: str) -> dict[str, str]:
 
 def _target(key: str) -> str:
     """Credential name, one set of keys per settings file (install folder)."""
-    return f"Doc2Excel:{key}:{ENV_PATH.resolve().parent}"
+    return f"{APP_NAME}:{key}:{ENV_PATH.resolve().parent}"
 
 
 def _write_env_lines(updates: dict[str, str], append: bool) -> None:
@@ -107,7 +102,7 @@ def _store_secrets(secrets: dict[str, str]) -> bool:
         return False
     try:
         for k, v in secrets.items():
-            keystore.put(_target(k), v, f"Doc2Excel {k} ({ENV_PATH.parent})")
+            keystore.put(_target(k), v, f"{APP_NAME} {k} ({ENV_PATH.parent})")
     except keystore.KeystoreError as e:
         print("keystore:", e)
         return False

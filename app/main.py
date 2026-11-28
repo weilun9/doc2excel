@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import config
+from . import config, edition
 
 
 class Api:
@@ -135,11 +135,12 @@ def _claim_single_instance() -> bool:
     import ctypes
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel32.CreateMutexW.restype = ctypes.c_void_p
-    _mutex = kernel32.CreateMutexW(None, False, "Local\\Doc2Excel.SingleInstance")
+    # Per edition, so the internal and public apps can run side by side.
+    _mutex = kernel32.CreateMutexW(None, False, f"Local\\{edition.APP_ID}.SingleInstance")
     if ctypes.get_last_error() != 183:  # ERROR_ALREADY_EXISTS
         return True
     user32 = ctypes.windll.user32
-    hwnd = user32.FindWindowW(None, "Doc2Excel")
+    hwnd = user32.FindWindowW(None, edition.NAME)
     if hwnd:
         user32.ShowWindow(hwnd, 9)  # SW_RESTORE
         user32.SetForegroundWindow(hwnd)
@@ -166,7 +167,7 @@ def run_gui():
     api = Api()
     api._server = server
     window = webview.create_window(
-        "Doc2Excel", f"http://127.0.0.1:{port}/", js_api=api,
+        edition.NAME, f"http://127.0.0.1:{port}/", js_api=api,
         width=1440, height=900, min_size=(1000, 640),
         text_select=True)  # OCR text and table cells can be selected and copied
     api._window = window
@@ -247,15 +248,16 @@ def _setup_streams(cli: bool):
 
 def main(argv=None):
     _setup_streams(cli=bool(argv or sys.argv[1:]))
-    ap = argparse.ArgumentParser(prog="Doc2Excel")
+    ap = argparse.ArgumentParser(prog=edition.NAME)
     ap.add_argument("--process", nargs="+", metavar="FILE", help="process files without the GUI")
     ap.add_argument("--out", default="Doc2Excel.xlsx")
     ap.add_argument("--mode", default="both", choices=["per_doc", "combined", "both"])
-    ap.add_argument("--dynamod", metavar="TEMPLATE.xlsx",
-                    help="SmartAcc DynaMod: write a 进单整理表 (--out) from this template "
-                         "+ import files into DYNAMOD_OUT_DIR")
-    ap.add_argument("--from-worksheet", metavar="整理表.xlsx",
-                    help="SmartAcc DynaMod: make import files from an edited, Excel-saved 整理表")
+    if edition.has("dynamod"):
+        ap.add_argument("--dynamod", metavar="TEMPLATE.xlsx",
+                        help="SmartAcc DynaMod: write a 进单整理表 (--out) from this template "
+                             "+ import files into DYNAMOD_OUT_DIR")
+        ap.add_argument("--from-worksheet", metavar="整理表.xlsx",
+                        help="SmartAcc DynaMod: make import files from an edited, Excel-saved 整理表")
     ap.add_argument("--server-only", action="store_true", help="dev: run the server without a window")
     args = ap.parse_args(argv)
     if args.server_only:
@@ -269,7 +271,7 @@ def main(argv=None):
         print("serving on", srv.start(), srv.phone_urls(), flush=True)
         while True:
             time.sleep(3600)
-    if args.from_worksheet:
+    if getattr(args, "from_worksheet", None):
         from . import dynamod
         config.load()
         bills, notes = dynamod.bills_from_workbook(args.from_worksheet)
@@ -279,7 +281,7 @@ def main(argv=None):
             print(f"{r['doc_id']}: " + (f"import file {r['path']}" if r["ok"] else "CHECK - " + "; ".join(r["problems"])))
         sys.exit(0)
     if args.process:
-        sys.exit(run_cli(args.process, args.out, args.mode, args.dynamod))
+        sys.exit(run_cli(args.process, args.out, args.mode, getattr(args, "dynamod", None)))
     run_gui()
 
 

@@ -94,7 +94,7 @@ class Store:
     def summary(self) -> list[dict]:
         keep = ("id", "name", "source", "added", "status", "progress", "pages", "engine",
                 "mode", "warning", "error", "confirmed", "erp_state", "erp_message", "enhanced",
-                "rotate", "img_ver", "exported_at")
+                "rotate", "img_ver", "exported_at", "deliveries")
         with self.lock:
             out = []
             for i in self.order:
@@ -125,6 +125,18 @@ class Store:
             for i in doc_ids:
                 if i in self.docs:
                     self.docs[i]["exported_at"] = now
+                    self.docs[i].setdefault("deliveries", {})["excel"] = {"state": "exported", "at": now, "message": ""}
+        self.save()
+
+    def record_delivery(self, doc_id: str, dest_id: str, state: str, message: str = "") -> None:
+        """Last result per destination: {"excel": {"state", "at", "message"}, ...}."""
+        with self.lock:
+            d = self.docs.get(doc_id)
+            if not d:
+                return
+            d.setdefault("deliveries", {})[dest_id] = {"state": state, "at": time.time(), "message": message[:300]}
+            if dest_id == "excel" and state == "exported":
+                d["exported_at"] = d["deliveries"][dest_id]["at"]
         self.save()
 
     def set_erp(self, doc_id: str, state: str, message: str = "", erp_id=None) -> None:

@@ -122,7 +122,19 @@ async function refresh() {
   renderAll();
 }
 
+// What this edition ships: hide the controls of destinations it does not have.
+function applyEdition() {
+  if (STATE.app_name && document.title !== STATE.app_name) {
+    document.title = STATE.app_name;
+    $("#brandName").textContent = STATE.app_name;
+  }
+  const dm = hasDest("dynamod"), erp = hasDest("erp");
+  for (const el of [$("#btnDm"), $("#btnDmFromWb"), $('.set-item[data-sec="dm"]')]) el.classList.toggle("hidden", !dm);
+  for (const el of [$("#btnErpAll"), $("#rvErp"), $('.set-item[data-sec="erp"]')]) el.classList.toggle("hidden", !erp);
+}
+
 function renderAll() {
+  applyEdition();
   renderMap();
   renderDocs();
   renderWork();
@@ -155,6 +167,17 @@ function renderChips() {
 }
 
 // ---------------- the line map ----------------
+// Line ink and label colour per destination (label colours are lighter for the ink bar).
+const BRANCH = { excel: ["#1f8a4c", "#7fd3a0"], dynamod: ["#e9a300", "#ffd166"], erp: ["#2457c5", "#9db8ff"], other: ["#f7f5ef", "#f7f5ef"] };
+const destName = (id) => t({ excel: "brExcel", dynamod: "brDm", erp: "brErp" }[id] || "dest_" + id);
+const hasDest = (id) => (STATE.destinations || []).some((d) => d.id === id);
+// Has this document reached that destination?
+function delivered(d, id) {
+  if (id === "excel") return !!d.exported_at;
+  if (id === "erp") return erpDone(d);
+  const r = (d.deliveries || {})[id];
+  return !!r && !["failed", "check"].includes(r.state);
+}
 function renderMap() {
   const docs = STATE.docs || [];
   const n = (st) => docs.filter((d) => stationOf(d) === st).length;
@@ -162,21 +185,21 @@ function renderMap() {
     ["review", t("stReview"), n("review")], ["confirmed", t("stConfirmed"), n("confirmed")]];
   if (n("errors")) stations.splice(4, 0, ["errors", t("stErrors"), n("errors")]);
   const hot = n("review") ? "review" : null;
-  const erp = docs.filter(erpDone).length;
-  const xl = docs.filter((d) => d.exported_at).length;
-  const sel = (k) => (FILTER === k ? " sel" : "");
-  // Branches leave the line after "Confirmed": y=9 is the line; Excel up, DynaMod straight, ERP down.
+  // Branches leave the line after "Confirmed", one per destination this edition ships.
+  const dests = STATE.destinations || [{ id: "excel" }];
+  const offs = { 1: [0], 2: [-1, 1], 3: [-1, 0, 1] }[dests.length] || dests.map((_, i) => i - (dests.length - 1) / 2);
+  const paths = [], labels = [];
+  dests.forEach((d, i) => {
+    const y = 9 + offs[i] * 15, ink = BRANCH[d.id] || BRANCH.other;
+    paths.push(offs[i] ? `<path d="M2 9 L17 ${y} H54" stroke="${ink[0]}" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>`
+                       : `<path d="M2 9 H54" stroke="${ink[0]}" stroke-width="5" stroke-linecap="round"/>`);
+    const c = docs.filter((x) => delivered(x, d.id)).length, key = "d:" + d.id;
+    labels.push(`<button class="br${FILTER === key ? " sel" : ""}" data-st="${key}" style="top:${y - 9}px;color:${ink[1]}" title="${esc(t("filterHint"))}">${esc(destName(d.id))}${c ? " · " + c : ""}</button>`);
+  });
   const html = `<div class="stations">${stations.map(([k, label, c]) =>
     `<button class="station${k === hot ? " hot" : ""}${k === "errors" ? " err" : ""}${FILTER === k && k ? " sel" : ""}" data-st="${k}" title="${esc(t("filterHint"))}">
       <span class="ring"></span><span class="lab">${esc(label)} <span class="n">${c}</span></span></button>`).join("")}</div>
-    <div class="branches">
-      <svg width="60" height="56" viewBox="0 -16 60 56" aria-hidden="true">
-      <path d="M2 9 L17 -6 H54" stroke="#1f8a4c" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
-      <path d="M2 9 H54" stroke="#e9a300" stroke-width="5" stroke-linecap="round"/>
-      <path d="M2 9 L17 24 H54" stroke="#2457c5" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
-      <button class="br excel${sel("exported")}" data-st="exported" title="${esc(t("filterHint"))}">${esc(t("brExcel"))}${xl ? " · " + xl : ""}</button>
-      <span class="br dm">${esc(t("brDm"))}</span>
-      <button class="br erp${sel("erp")}" data-st="erp" title="${esc(t("filterHint"))}">${esc(t("brErp"))}${erp ? " · " + erp : ""}</button></div>`;
+    <div class="branches"><svg width="60" height="56" viewBox="0 -16 60 56" aria-hidden="true">${paths.join("")}</svg>${labels.join("")}</div>`;
   if (html !== renderMap.last) { $("#map").innerHTML = html; renderMap.last = html; }
 }
 $("#map").addEventListener("click", (e) => {
@@ -187,7 +210,7 @@ $("#map").addEventListener("click", (e) => {
 function setFilter(st) {
   FILTER = st;
   $("#filterChip").classList.toggle("hidden", !st);
-  $("#filterName").textContent = st ? ({ erp: t("brErp"), exported: t("stExported") }[st] || t("st" + st[0].toUpperCase() + st.slice(1))) : "";
+  $("#filterName").textContent = !st ? "" : st.startsWith("d:") ? destName(st.slice(2)) : t("st" + st[0].toUpperCase() + st.slice(1));
   renderMap.last = renderDocs.last = null;
   renderAll();
 }
@@ -218,8 +241,7 @@ function erpTag(d) {
 function renderDocs() {
   const all = STATE.docs || [];
   for (const id of [...selected]) if (!all.some((d) => d.id === id && d.status === "ready")) selected.delete(id);
-  const docs = FILTER === "erp" ? all.filter(erpDone)
-    : FILTER === "exported" ? all.filter((d) => d.exported_at)
+  const docs = FILTER.startsWith("d:") ? all.filter((d) => delivered(d, FILTER.slice(2)))
     : FILTER ? all.filter((d) => stationOf(d) === FILTER) : all;
   const html = docs.map((d) => {
     const m = docMeta(d);

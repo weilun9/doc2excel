@@ -1,6 +1,10 @@
 # Build Doc2Excel.exe + the installer on Windows and publish them as a GitHub
-# Release v<version>. Runs when a version tag is pushed (git tag v1.1.0 &&
-# git push --tags) or by hand: Actions tab > release > Run workflow.
+# Release v<version>. One code base, two editions (see app/edition.py):
+#   internal = "Doc2Excel Pro", released here (weilun9/doc2excel)
+#   public   = "Doc2Excel", released to weilun9/doc2excel-app; needs the
+#              PUBLIC_RELEASE_TOKEN secret (a token that can create releases there)
+# Runs when a version tag is pushed (internal only: git tag v1.3.0 && git push
+# --tags) or by hand: Actions tab > release > Run workflow.
 name: release
 
 on:
@@ -9,9 +13,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version number (e.g. 1.1.0)"
+        description: "Version number (e.g. 1.3.0)"
         required: true
-        default: "1.1.2"
+        default: "1.3.0"
+      edition:
+        description: "Edition"
+        type: choice
+        options: [internal, public]
+        default: internal
 
 permissions:
   contents: write
@@ -26,12 +35,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Version
+      - name: Version and edition
         id: v
         shell: pwsh
         run: |
           $v = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}".TrimStart("v") } else { "${{ inputs.version }}" }
+          $e = if ("${{ inputs.edition }}") { "${{ inputs.edition }}" } else { "internal" }
+          $info = @{ internal = @{ id = "Doc2Excel"; name = "Doc2Excel Pro"; repo = "weilun9/doc2excel" };
+                     public   = @{ id = "Doc2ExcelApp"; name = "Doc2Excel"; repo = "weilun9/doc2excel-app" } }[$e]
           "version=$v" >> $env:GITHUB_OUTPUT
+          "edition=$e" >> $env:GITHUB_OUTPUT
+          "app_id=$($info.id)" >> $env:GITHUB_OUTPUT
+          "app_name=$($info.name)" >> $env:GITHUB_OUTPUT
+          "repo=$($info.repo)" >> $env:GITHUB_OUTPUT
 
       - uses: actions/setup-python@v5
         with:
@@ -47,18 +63,17 @@ jobs:
       - name: Tests
         shell: pwsh
         run: |
-          .\.venv\Scripts\python tests\table_test.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python tests\dynamod_test.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python tests\security_test.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python tests\updater_test.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python tests\keystore_test.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          .\.venv\Scripts\python tests\enhance_test.py
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          foreach ($t in "table_test", "dynamod_test", "security_test", "updater_test", "keystore_test", "enhance_test") {
+            .\.venv\Scripts\python "tests\$t.py"
+            if ($LASTEXITCODE) { throw "$t failed" }
+          }
+          # destinations + edition checks, for both editions
+          foreach ($e in "internal", "public") {
+            $env:D2X_EDITION = $e
+            .\.venv\Scripts\python tests\destinations_test.py
+            if ($LASTEXITCODE) { throw "destinations_test ($e) failed" }
+          }
+          Remove-Item Env:\D2X_EDITION
 
       - name: Install NSIS
         shell: pwsh
@@ -68,9 +83,15 @@ jobs:
       - name: Build exe + installer
         shell: pwsh
         run: |
-          .\build.ps1 -Version ${{ steps.v.outputs.version }}
+          .\build.ps1 -Version ${{ steps.v.outputs.version }} -Edition ${{ steps.v.outputs.edition }}
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           if (-not (Test-Path "dist\Doc2Excel-Setup-${{ steps.v.outputs.version }}.exe")) { throw "installer missing" }
+
+      - name: Build check (the exe carries exactly its edition's code)
+        shell: pwsh
+        run: |
+          .\.venv\Scripts\python tests\build_check.py ${{ steps.v.outputs.edition }} dist\Doc2Excel.exe
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
       - name: Smoke test (headless run of the built exe)
         shell: pwsh
@@ -83,6 +104,7 @@ jobs:
         shell: pwsh
         run: |
           $env:D2X_AI_MODE = "offline"; $env:D2X_OCR_MODE = "local"
+          $id = "${{ steps.v.outputs.app_id }}"
           $d = "$env:RUNNER_TEMP\kstest"; New-Item -ItemType Directory $d | Out-Null
           Copy-Item dist\Doc2Excel.exe $d
           Set-Content "$d\.env" "LLM_API_KEY=sk-ci-test-key`n" -Encoding utf8
@@ -93,31 +115,34 @@ jobs:
           }
           if ((Get-Content "$d\.env" -Raw) -match "sk-ci-test-key") { throw "key still in .env" }
           $list = cmdkey /list | Out-String
-          if ($list -notmatch [regex]::Escape("Doc2Excel:LLM_API_KEY:$d")) { throw "key not in Credential Manager" }
-          cmdkey /delete:"Doc2Excel:LLM_API_KEY:$d" | Out-Null
+          if ($list -notmatch [regex]::Escape("${id}:LLM_API_KEY:$d")) { throw "key not in Credential Manager" }
+          cmdkey /delete:"${id}:LLM_API_KEY:$d" | Out-Null
           Write-Host "key store OK"
 
       - name: Installer test (silent install + uninstall)
         shell: pwsh
         run: |
-          $v = "${{ steps.v.outputs.version }}"
-          $dir = "$env:LOCALAPPDATA\Programs\Doc2Excel"
+          $v = "${{ steps.v.outputs.version }}"; $id = "${{ steps.v.outputs.app_id }}"; $name = "${{ steps.v.outputs.app_name }}"
+          $dir = "$env:LOCALAPPDATA\Programs\$id"
+          $key = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$id"
           $p = Start-Process "dist\Doc2Excel-Setup-$v.exe" -ArgumentList "/S" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "silent install failed ($($p.ExitCode))" }
-          if (-not (Test-Path "$dir\Doc2Excel.exe")) { throw "Doc2Excel.exe not installed" }
+          if (-not (Test-Path "$dir\Doc2Excel.exe")) { throw "Doc2Excel.exe not installed in $dir" }
           if (-not (Test-Path "$dir\.env")) { throw ".env not created" }
-          $reg = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Doc2Excel"
+          $reg = Get-ItemProperty $key
           if ($reg.DisplayVersion -ne $v) { throw "registry version $($reg.DisplayVersion) != $v" }
+          if ($reg.DisplayName -ne $name) { throw "registry name $($reg.DisplayName) != $name" }
+          if (-not (Test-Path "$([Environment]::GetFolderPath('Programs'))\$name.lnk")) { throw "Start menu shortcut '$name' missing" }
           # _?= keeps the uninstaller in place and makes -Wait wait for it.
           $p = Start-Process "$dir\Uninstall.exe" -ArgumentList "/S","_?=$dir" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "silent uninstall failed ($($p.ExitCode))" }
           if (Test-Path "$dir\Doc2Excel.exe") { throw "Doc2Excel.exe still there after uninstall" }
-          if (Test-Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Doc2Excel") { throw "uninstall key left" }
-          Write-Host "silent install + uninstall OK"
+          if (Test-Path $key) { throw "uninstall key left" }
+          Write-Host "silent install + uninstall OK ($name in $dir)"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Doc2Excel-${{ steps.v.outputs.version }}
+          name: ${{ steps.v.outputs.app_id }}-${{ steps.v.outputs.version }}
           path: |
             dist/Doc2Excel-Setup-${{ steps.v.outputs.version }}.exe
             dist/Doc2Excel.exe
@@ -125,9 +150,15 @@ jobs:
       - name: Publish release
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
+          OWN_TOKEN: ${{ github.token }}
+          PUBLIC_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
         run: |
-          $v = "${{ steps.v.outputs.version }}"
-          gh release create "v$v" "dist\Doc2Excel-Setup-$v.exe" "dist\Doc2Excel.exe" --target "${{ github.sha }}" `
-            --title "Doc2Excel $v" `
+          $v = "${{ steps.v.outputs.version }}"; $repo = "${{ steps.v.outputs.repo }}"; $name = "${{ steps.v.outputs.app_name }}"
+          if ("${{ steps.v.outputs.edition }}" -eq "public") {
+            if (-not $env:PUBLIC_TOKEN) { throw "PUBLIC_RELEASE_TOKEN secret is not set: it must be a token that can create releases in $repo" }
+            $env:GH_TOKEN = $env:PUBLIC_TOKEN
+          } else { $env:GH_TOKEN = $env:OWN_TOKEN }
+          $target = if ($repo -eq "${{ github.repository }}") { @("--target", "${{ github.sha }}") } else { @() }
+          gh release create "v$v" "dist\Doc2Excel-Setup-$v.exe" "dist\Doc2Excel.exe" --repo $repo @target `
+            --title "$name $v" `
             --notes "Windows installer: Doc2Excel-Setup-$v.exe (per-user, no admin). Doc2Excel.exe = portable single file."

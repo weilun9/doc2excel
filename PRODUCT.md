@@ -56,6 +56,19 @@ template.
 - UI in English and Chinese (`i18n.js`); every new string needs both.
 - Recognised content on the review screen stays at 1.5x the base size.
 
+## Editions
+
+One code base, two products (decided 2026-11-28):
+
+- **Doc2Excel Pro** (internal): the owner's own tool. Excel, SmartAcc DynaMod
+  and the AI ERP. Released from weilun9/doc2excel.
+- **Doc2Excel** (public): for anyone; recognise, review, export to Excel.
+  Released from weilun9/doc2excel-app. Planned later: send results back to the
+  phone, e-mail the OCR text. Both are new destinations, not new screens.
+
+Interface fixes go into both. Whether the public edition earns money is open;
+it is also a portfolio piece, so its repository should read well on its own.
+
 ## Product Principles
 
 1. Review speed first: photo and table side by side, the next action always in

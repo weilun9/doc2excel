@@ -29,6 +29,22 @@ A Windows desktop app that turns scanned or photographed paper documents
 The app runs only while its window is open. Closing it stops the local server,
 the folder watcher and all processing. Nothing autostarts.
 
+## Editions
+
+One code base builds two products (`app/edition.py`):
+
+| | **Doc2Excel Pro** (internal) | **Doc2Excel** (public) |
+|---|---|---|
+| Sends checked documents to | Excel, SmartAcc DynaMod, AI ERP | Excel |
+| Released from | this repository | [weilun9/doc2excel-app](https://github.com/weilun9/doc2excel-app) |
+| Installs to / keeps data in | `Programs\Doc2Excel`, `%LOCALAPPDATA%\Doc2Excel` | `Programs\Doc2ExcelApp`, `%LOCALAPPDATA%\Doc2ExcelApp` |
+
+Each edition updates only from its own repository, and the two can be installed
+side by side. The DynaMod and ERP sections below apply to Doc2Excel Pro.
+Where documents can go is a **destination** (`app/destinations/`); a new one
+(for example "send back to the phone" or "e-mail the OCR text") is a module with
+a `Destination` subclass plus an entry in the edition table.
+
 ## Run it
 
 **Installer:** run `Doc2Excel-Setup-<version>.exe`. It installs for the current
@@ -163,10 +179,10 @@ come back online.
 | What | Where |
 |---|---|
 | Settings | `.env` next to `Doc2Excel.exe` |
-| API keys | Windows Credential Manager (`Doc2Excel:…` entries) |
-| Imported files, previews, session state | `%LOCALAPPDATA%\Doc2Excel\` |
-| Watched folder (default) | `Documents\Doc2Excel\Inbox` |
-| Log (exe only) | `%LOCALAPPDATA%\Doc2Excel\doc2excel.log` |
+| API keys | Windows Credential Manager (`Doc2Excel:…` entries; public edition `Doc2ExcelApp:…`) |
+| Imported files, previews, session state | `%LOCALAPPDATA%\Doc2Excel\` (public edition `Doc2ExcelApp`) |
+| Watched folder (default) | `Documents\Doc2Excel\Inbox` (public edition `Documents\Doc2ExcelApp\Inbox`) |
+| Log (exe only) | `%LOCALAPPDATA%\Doc2Excel\doc2excel.log` (public edition `Doc2ExcelApp`) |
 
 Delete a document in the app to remove its stored copy.
 
@@ -188,8 +204,12 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\pip install -r requirements.txt
 .\.venv\Scripts\python run.py                     # run the app from source
 .\.venv\Scripts\python samples\make_samples.py    # generate test documents
-powershell -ExecutionPolicy Bypass -File build.ps1   # -> dist\Doc2Excel.exe (+ installer if NSIS is installed)
+powershell -ExecutionPolicy Bypass -File build.ps1 -Version 1.3.0                   # Doc2Excel Pro
+powershell -ExecutionPolicy Bypass -File build.ps1 -Version 1.0.0 -Edition public   # Doc2Excel
+.\.venv\Scripts\python testsuild_check.py public   # the exe carries exactly its edition's code
 ```
+
+From source, `set D2X_EDITION=public` runs the public edition (default: internal).
 
 ## Project layout
 
@@ -202,7 +222,11 @@ app/
   layout.py      offline table from box positions: page flattening, deskew,
                  header-anchored columns, wrapped-line merging
   structure.py   LLM table extraction (chunked for long documents) + offline rules
+  edition.py     which edition this build is: name, folders, update repo, destinations
+  destinations/  where documents go: base.py (contract), registry.py, excel.py,
+                 dynamod.py and erp.py (Pro only), specs.py (their settings)
   dynamod.py     SmartAcc DynaMod: bills, 进单整理表, one import file per bill
+  erp.py         AI ERP client (scan-queue upload)
   exporter.py    formatted .xlsx output
   sources.py     watched folder, WIA scanner, LAN address
   config.py      .env settings
@@ -211,7 +235,8 @@ app/
 samples/         sample invoice/receipt generator
 assets/dynamod/  DynaMod's blank import templates (header only)
 tests/           security_test.py (server/exporter), table_test.py (table building),
-                 dynamod_test.py (DynaMod export)
+                 dynamod_test.py (DynaMod export), destinations_test.py (destinations
+                 and editions), build_check.py (contents of a built exe)
 build.ps1        PyInstaller one-file build (+ NSIS installer)
 installer/       doc2excel.nsi: per-user installer, keeps .env on upgrade
 ```

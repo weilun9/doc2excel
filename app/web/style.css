@@ -116,7 +116,6 @@ select {
 .map .branches { position: relative; width: 150px; height: 44px; margin-left: -22px; }
 .map .branches svg { position: absolute; left: 0; top: -16px; }
 .map .br { position: absolute; left: 60px; font-size: 13px; font-weight: 700; white-space: nowrap; background: none; border: 0; padding: 0; cursor: pointer; line-height: 17px; }
-.map .br.excel { top: -15px; color: #7fd3a0; } .map .br.dm { top: 1px; color: #ffd166; cursor: default; } .map .br.erp { top: 17px; color: #9db8ff; }
 .map .br.sel { text-decoration: underline; text-underline-offset: 3px; }
 @media (hover: hover) and (pointer: fine) { .station:hover .lab, .map button.br:hover { opacity: 1; text-decoration: underline; text-underline-offset: 5px; } }
 /* Pickers: caption above, select below (the tall bar has room for two lines). */
