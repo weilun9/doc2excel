@@ -1,0 +1,122 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>05 Phone popover — Doc2Excel mockup</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&family=JetBrains+Mono&display=swap">
+<style>
+:root{--ink:#0f1d3a;--text:#14203b;--muted:#5b6478;--porc:#f7f5ef;--line:#e3dfd3;--red:#d7372f;--blue:#2457c5;--amber:#e9a300;--green:#1f8a4c;--tint:#eaf0fb}
+*{box-sizing:border-box}body{margin:0;width:1440px;height:900px;overflow:hidden;font-family:"Atkinson Hyperlegible Next","Segoe UI",sans-serif;color:var(--text);background:var(--porc);font-size:14px}
+svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.top{height:56px;background:var(--ink);color:var(--porc);display:flex;align-items:center;gap:28px;padding:0 12px 0 18px}
+.brand{display:flex;gap:9px;align-items:center;font-weight:700;font-size:17px}
+.map{position:relative;width:580px;height:56px}
+.st{position:absolute;top:33px;display:flex;gap:5px;align-items:center;font-size:12.5px;font-weight:500}
+.st b{background:rgba(247,245,239,.16);border-radius:9px;padding:0 6px;font-size:11.5px}.st.cur{font-weight:700}.st.cur b{background:var(--red);color:#fff}
+.br{position:absolute;left:472px;font-size:11px;font-weight:600}
+.sp{flex:1}.pk{display:flex;gap:8px;align-items:center;font-size:12px}.pk>span{opacity:.7;font-weight:500}
+.sel{display:flex;gap:6px;align-items:center;border:1px solid rgba(247,245,239,.22);background:rgba(247,245,239,.1);border-radius:7px;padding:6px 8px 6px 10px;font-size:13px;font-weight:600}.sel i{font-style:normal;font-weight:400;opacity:.65;font-size:12px}
+.btn{display:inline-flex;gap:8px;align-items:center;border-radius:8px;padding:6px 12px 6px 10px;font-size:13px;font-weight:600;background:#fff;border:1px solid #d6d1c2;color:var(--text)}
+.btn.ghost{background:none;border-color:transparent}.btn.on{background:var(--ink);color:var(--porc);border-color:var(--ink)}
+.body{display:flex;height:844px}
+.inbox{width:310px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;position:relative}
+.ih{display:flex;align-items:center;gap:8px;padding:14px 12px 12px 16px}.ih h2{margin:0;font-size:16px}.ih small{color:var(--muted);font-size:13px}
+.cb{width:16px;height:16px;border-radius:4px;border:1.5px solid #b9b3a3;flex-shrink:0;display:grid;place-items:center}.cb.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.row{display:flex;gap:11px;padding:11px 14px 11px 16px;border-bottom:1px solid #efece3;align-items:flex-start}.row.sel{background:var(--tint)}
+.dot{width:14px;height:14px;border-radius:50%;border:3px solid var(--red);flex-shrink:0;margin-top:1px}.dot.busy{border:2.5px dashed #9aa3b5}.dot.dy{background:var(--amber);border-color:var(--amber)}.dot.erp{background:var(--blue);border-color:var(--blue)}
+.tx{flex:1;min-width:0}.t{font-weight:600;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.m{color:var(--muted);font-size:12.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.amt{font-weight:600}
+.selbar{margin-top:auto;background:var(--ink);color:var(--porc);padding:12px 14px}.selbar .bs{display:flex;gap:6px;margin-top:10px}.selbar .btn{flex:1;justify-content:center}
+.add{background:var(--porc);padding:12px 14px 14px}.add .bs{display:flex;gap:6px}.add .btn{flex:1;justify-content:center}
+.wf{display:flex;gap:6px;align-items:center;margin-top:10px;color:var(--muted);font-size:12.5px}.wf a{margin-left:auto;color:var(--blue);font-weight:600}
+.photo{width:430px;background:#e4e0d4;position:relative;overflow:hidden}
+.paper{position:absolute;left:25px;top:40px;width:380px;height:620px;background:#fbfaf5;transform:rotate(-1.2deg);box-shadow:0 10px 28px -6px rgba(26,20,13,.28);padding:28px 26px;font-family:"JetBrains Mono",Consolas,monospace;font-size:12.5px;color:#2f2a22;line-height:1.9;white-space:pre}
+.split{width:9px;background:var(--porc);border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.res{flex:1;background:#fff;display:flex;flex-direction:column}
+.rh{display:flex;gap:8px;align-items:center;padding:10px 14px 10px 20px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;background:var(--porc);border-radius:8px;padding:3px}.tabs span{padding:6px 14px;border-radius:6px;font-weight:600;font-size:13.5px;color:var(--muted)}.tabs .on{background:var(--ink);color:var(--porc)}
+.rb{padding:18px 24px;flex:1}.h1{font-size:27px;font-weight:700}.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.fields{display:flex;border:1px solid var(--line);border-radius:8px;margin-top:14px}.fields div{flex:1;padding:10px 14px;border-right:1px solid var(--line)}.fields div:last-child{border:0}.fields small{display:block;color:var(--muted);font-size:12.5px;font-weight:500}.fields b{font-size:21px;font-weight:600}
+table{width:100%;border-collapse:separate;border-spacing:0;margin-top:14px;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-variant-numeric:tabular-nums}
+th{background:var(--ink);color:var(--porc);font-size:13px;text-align:left;padding:8px 10px}td{padding:9px 10px;font-size:19.5px}tr:nth-child(odd) td{background:#faf9f5}.r{text-align:right}td.bc{font-size:15px;color:var(--muted)}td.n{font-size:15px;color:var(--muted)}
+.bar{display:flex;gap:8px;align-items:center;padding:12px 16px 12px 20px;background:var(--porc);border-top:1px solid var(--line)}
+.go{display:flex;gap:8px;align-items:center;background:var(--red);color:#fff;border-radius:8px;padding:11px 20px 11px 18px;font-weight:600;font-size:15px}
+.nx{text-align:right;font-size:11.5px;color:var(--muted)}.nx b{display:block;font-size:13px;color:var(--text)}
+/* popover */
+.pop{position:absolute;left:14px;bottom:72px;width:300px;background:var(--ink);color:var(--porc);border-radius:14px;padding:18px 18px 16px;box-shadow:0 18px 40px -10px rgba(15,29,58,.45),0 2px 6px rgba(15,29,58,.2);z-index:5;transform-origin:30% 100%}
+.pop:after{content:"";position:absolute;bottom:-7px;left:132px;width:14px;height:14px;background:var(--ink);transform:rotate(45deg);border-radius:2px}
+.pop h3{margin:0;font-size:16px;font-weight:700;display:flex;align-items:center}.pop h3 .x{margin-left:auto;opacity:.7}
+.qr{width:196px;height:196px;background:#fff;border-radius:10px;margin:14px auto 12px;padding:12px;display:grid;grid-template-columns:repeat(21,1fr);grid-template-rows:repeat(21,1fr);gap:0}.qr i{display:block}
+.qr i{background:var(--ink)}.qr i.o{background:none}
+.addr{display:flex;justify-content:center}.addr .sel{background:rgba(247,245,239,.1)}
+.pop p{margin:10px 0 0;font-size:12.5px;line-height:1.5;opacity:.75;text-align:center}
+.cnt{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:12px;background:rgba(127,211,160,.14);color:#9fe0b8;border-radius:7px;padding:6px 10px;font-size:12.5px;font-weight:600}
+.dim{position:absolute;inset:0;background:rgba(15,29,58,.0)}
+.note{position:absolute;right:20px;top:72px;background:#fff8d6;border:1px solid #f0d48a;color:#5c4100;font-size:12.5px;padding:8px 12px;border-radius:8px;max-width:330px;line-height:1.5}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9 14h6"/></symbol>
+<symbol id="scan" viewBox="0 0 24 24"><rect x="3" y="12" width="18" height="7" rx="2"/><path d="M7 12V5h10v7"/><path d="M7 16h4"/></symbol>
+<symbol id="folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+<symbol id="sl" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+<symbol id="table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></symbol>
+<symbol id="send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-6.5 18-4-8-8-4z"/></symbol>
+<symbol id="pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/></symbol>
+<symbol id="ref" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
+</defs></svg>
+<div class="top">
+ <div class="brand"><svg width="22" height="22" viewBox="0 0 22 22"><circle cx="11" cy="11" r="8.5" fill="#0f1d3a" stroke="#f7f5ef" stroke-width="3"/><circle cx="11" cy="11" r="3.5" fill="#d7372f"/></svg>Doc2Excel</div>
+ <div class="map"><svg width="580" height="56" style="position:absolute;left:0;top:0"><path d="M8 19 H372" stroke="#d7372f" stroke-width="4" stroke-linecap="round"/><path d="M372 19 L384 7 H466" stroke="#1f8a4c" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"/><path d="M372 19 H466" stroke="#e9a300" stroke-width="4" stroke-linecap="round"/><path d="M372 19 L384 31 H466" stroke="#2457c5" stroke-width="4" fill="none" stroke-linejoin="round" stroke-linecap="round"/><circle cx="10" cy="19" r="6" fill="#f7f5ef" stroke="#d7372f" stroke-width="3"/><circle cx="100" cy="19" r="6" fill="#f7f5ef" stroke="#d7372f" stroke-width="3"/><circle cx="190" cy="19" r="6" fill="#f7f5ef" stroke="#d7372f" stroke-width="3"/><circle cx="280" cy="19" r="9" fill="#0f1d3a" stroke="#f7f5ef" stroke-width="3"/><circle cx="280" cy="19" r="4" fill="#d7372f"/><circle cx="370" cy="19" r="6" fill="#f7f5ef" stroke="#d7372f" stroke-width="3"/></svg>
+  <div class="st" style="left:6px">Inbox <b>7</b></div><div class="st" style="left:96px">Read <b>2</b></div><div class="st" style="left:186px">Build <b>1</b></div><div class="st cur" style="left:276px">Review <b>2</b></div><div class="st" style="left:366px">Confirmed <b>2</b></div>
+  <div class="br" style="top:0;color:#7fd3a0">Excel</div><div class="br" style="top:13px;color:#ffd166">DynaMod · 1</div><div class="br" style="top:26px;color:#9db8ff">ERP · 1</div></div>
+ <div class="sp"></div>
+ <div class="pk"><span>Read text</span><div class="sel">Auto <i>Local OCR</i><svg class="i" style="width:16px"><use href="#down"/></svg></div></div>
+ <div class="pk"><span>Build table</span><div class="sel">Auto <i>DeepSeek</i><svg class="i" style="width:16px"><use href="#down"/></svg></div></div>
+ <div class="btn ghost" style="color:var(--porc)"><svg class="i"><use href="#sl"/></svg>Settings</div>
+</div>
+<div class="body">
+ <div class="inbox">
+  <div class="ih"><span class="cb"></span><h2>Inbox</h2><small>7 documents</small><span class="sp"></span><span class="btn ghost" style="background:var(--porc);padding:4px 6px 4px 9px;font-weight:500;font-size:12.5px">All stations <svg class="i" style="width:14px"><use href="#down"/></svg></span></div>
+  <div class="row"><span class="cb"></span><i class="dot busy"></i><div class="tx"><div class="t">IMG_20261128_101544.jpg</div><div class="m">Just arrived from phone · reading text</div></div></div>
+  <div class="row sel"><span class="cb on"><svg class="i" style="width:14px;stroke:#fff"><use href="#check"/></svg></span><i class="dot" style="border-width:4px"></i><div class="tx"><div class="t">TIONG NAM PLASTIC ENTERPRISE</div><div class="m">I-026565 · 5 rows · Phone</div></div><span class="amt">RM 163.00</span></div>
+  <div class="row"><span class="cb on"><svg class="i" style="width:14px;stroke:#fff"><use href="#check"/></svg></span><i class="dot"></i><div class="tx"><div class="t">GARDENIA BAKERIES</div><div class="m">6A10VD18 · 5 rows · Phone</div></div><span class="amt">RM 20.10</span></div>
+  <div class="row"><span class="cb"></span><i class="dot busy"></i><div class="tx"><div class="t">lsh_26111287.jpg</div><div class="m">Building table…</div></div></div>
+  <div class="row"><span class="cb"></span><i class="dot dy"></i><div class="tx"><div class="t">CAHAYA GUNUNG</div><div class="m">T02-160232 · DynaMod file made</div></div><span class="amt">RM 412.80</span></div>
+  <div class="selbar"><b>2 selected</b> <span style="opacity:.65;font-size:12.5px">ready to export</span><div class="bs"><span class="btn"><svg class="i"><use href="#table"/></svg>Excel</span><span class="btn"><svg class="i"><use href="#file"/></svg>DynaMod</span><span class="btn"><svg class="i"><use href="#send"/></svg>ERP</span></div></div>
+  <div class="add"><div class="bs"><span class="btn"><svg class="i"><use href="#file"/></svg>Files</span><span class="btn on"><svg class="i"><use href="#qr"/></svg>Phone</span><span class="btn"><svg class="i"><use href="#scan"/></svg>Scanner</span></div>
+   <div class="wf"><svg class="i" style="width:16px"><use href="#folder"/></svg>Watching D:\Scans\Doc2Excel<a>Change</a></div></div>
+  <div class="pop" id="pop">
+   <h3>Upload from your phone<span class="x"><svg class="i"><use href="#x"/></svg></span></h3>
+   <div class="qr" id="qr"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i></i><i></i><i class="o"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i></i><i class="o"></i><i></i></div>
+   <div class="addr"><div class="sel">192.168.1.23:8765 <svg class="i" style="width:14px"><use href="#down"/></svg></div></div>
+   <p>Phone on the same Wi-Fi as this PC. Scan, then take photos or pick PDFs; each one arrives in the Inbox by itself.</p>
+   <div class="cnt"><svg class="i" style="width:16px"><use href="#check"/></svg>3 files received from the phone this session</div>
+  </div>
+ </div>
+ <div class="photo"><div class="paper"><b style="font-family:'Atkinson Hyperlegible Next'">TIONG NAM PLASTIC ENTERPRISE</b>
+No. 12, Jalan Perusahaan 3
+
+INVOICE        I-026565
+DATE           04/11/2026
+------------------------------
+BK 17 X 20"        10   3.30
+STAR SEAL 18X21"   10   2.50
+PAPER D            10   2.90
+GETAH               1  21.00
+6.5" SUDU-WHITE     1  55.00
+------------------------------
+TOTAL RM               163.00</div></div>
+ <div class="split"></div>
+ <div class="res">
+  <div class="rh"><div class="tabs"><span class="on">Table</span><span>OCR text</span></div><span class="sp"></span><span class="btn ghost">Copy</span><span class="btn ghost">Save to file</span><span class="btn ghost"><svg class="i"><use href="#send"/></svg>Send to ERP</span></div>
+  <div class="rb"><div class="h1">TIONG NAM PLASTIC ENTERPRISE</div><div class="sub">tiongnam_I-026565.jpg · Phone · Local OCR · AI table (DeepSeek)</div>
+   <div class="fields"><div><small>Invoice no.</small><b>I-026565</b></div><div><small>Date</small><b>04/11/2026</b></div><div><small>Terms</small><b>30 days</b></div><div><small>Total (RM)</small><b>163.00</b></div></div>
+   <table><tr><th>#</th><th>Barcode</th><th>Description</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Total</th></tr>
+   <tr><td class="n">1</td><td class="bc">955560150334</td><td>BK 17 X 20"</td><td class="r">10</td><td class="r">3.30</td><td class="r">33.00</td></tr>
+   <tr><td class="n">2</td><td class="bc">9770077004755</td><td>STAR SEAL 18 X 21"</td><td class="r">10</td><td class="r">2.50</td><td class="r">25.00</td></tr>
+   <tr><td class="n">3</td><td class="bc"></td><td>PAPER D</td><td class="r">10</td><td class="r">2.90</td><td class="r">29.00</td></tr>
+   <tr><td class="n">4</td><td class="bc"></td><td>GETAH</td><td class="r">1</td><td class="r">21.00</td><td class="r">21.00</td></tr>
+   <tr><td class="n">5</td><td class="bc">955573530048</td><td>6.5" SUDU-WHITE (1 CTN X 40 PKT)</td><td class="r">1</td><td class="r">55.00</td><td class="r">55.00</td></tr></table></div>
+  <div class="bar"><span class="btn"><svg class="i"><use href="#pen"/></svg>Edit</span><span class="btn ghost"><svg class="i"><use href="#ref"/></svg>Re-run</span><span class="sp"></span><div class="nx">Next · Ctrl+Enter<b>GARDENIA 6A10VD18</b></div><div class="go"><svg class="i"><use href="#check"/></svg>Confirm &amp; next</div></div>
+ </div>
+</div>
+</body></html>
